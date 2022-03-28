@@ -25,7 +25,6 @@ import logging
 
 import cv2
 import numpy as np
-import pybullet as p
 import pyrender
 import trimesh
 from omegaconf import OmegaConf
@@ -43,15 +42,11 @@ def euler2matrix(angles=[0, 0, 0], translation=[0, 0, 0], xyz="xyz", degrees=Fal
     return pose
 
 
-# def euler2matrix(angles=[0, 0, 0], translation=[0, 0, 0]):
-#     q = p.getQuaternionFromEuler(angles)
-#     r = np.array(p.getMatrixFromQuaternion(q)).reshape(3, 3)
-
-#     pose = np.eye(4)
-#     pose[:3, 3] = translation
-#     pose[:3, :3] = r
-#     return pose
-
+def matrix2euler(pose, xyz="xyz", degrees=False):
+    r = R.from_matrix(pose[:3, :3])
+    angles = r.as_euler(xyz, degrees = degrees)
+    translation = pose[:3, 3]
+    return angles, translation
 
 class Renderer:
     def __init__(self, width, height, background, config_path):
@@ -147,22 +142,6 @@ class Renderer:
 
         self.depth0 = depths
         self._background_sim = colors
-
-    def _init_gel(self):
-        """
-        Add gel surface in the scene
-        """
-        # Create gel surface (flat/curve surface based on config file)
-        gel_trimesh = self._generate_gel_trimesh()
-
-        mesh_gel = pyrender.Mesh.from_trimesh(gel_trimesh, smooth=False)
-        self.gel_pose0 = np.eye(4)
-        self.gel_node = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
-        self.scene.add_node(self.gel_node)
-
-        # Add extra gel node into scene_depth
-        self.gel_node_depth = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
-        self.scene_depth.add_node(self.gel_node_depth)
 
     def _generate_gel_trimesh(self):
 
@@ -261,6 +240,22 @@ class Renderer:
         gel_trimesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
 
         return gel_trimesh
+
+    def _init_gel(self):
+        """
+        Add gel surface in the scene
+        """
+        # Create gel surface (flat/curve surface based on config file)
+        gel_trimesh = self._generate_gel_trimesh()
+
+        mesh_gel = pyrender.Mesh.from_trimesh(gel_trimesh, smooth=False)
+        self.gel_pose0 = np.eye(4)
+        self.gel_node = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
+        self.scene.add_node(self.gel_node)
+
+        # Add extra gel node into scene_depth
+        self.gel_node_depth = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
+        self.scene_depth.add_node(self.gel_node_depth)
 
     def _init_camera(self):
         """
@@ -388,8 +383,14 @@ class Renderer:
         """
         Update sensor pose (including camera, lighting, and gel surface)
         """
-
         pose = euler2matrix(angles=orientation, translation=position)
+        self.update_camera_pose_from_matrix(pose)
+
+    def update_camera_pose_from_matrix(self, tf_matrix):
+        """
+        Update sensor pose (including camera, lighting, and gel surface)
+        """
+        pose = tf_matrix
 
         # Update camera
         for i in range(self.nb_cam):
@@ -405,6 +406,7 @@ class Renderer:
             light_pose = pose.dot(self.light_poses0[i])
             light_node = self.light_nodes[i]
             light_node.matrix = light_pose
+        # pyrender.Viewer(self.scene, use_raymond_lighting=True)
 
     def update_object_pose(self, obj_name, position, orientation):
         """
@@ -466,7 +468,7 @@ class Renderer:
 
         if self._background_real is not None:
             # Simulated difference image, with scaling factor 0.5
-            diff = (color.astype(np.float) - self._background_sim[camera_index]) * 0.5
+            diff = (color.astype(np.float)[:, :, :3] - self._background_sim[camera_index][:, :, :3]) * 0.5
 
             # Add low-pass filter to match real readings
             diff = cv2.GaussianBlur(diff, (7, 7), 0)
