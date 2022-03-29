@@ -36,7 +36,7 @@ def get_omnitact_config_path():
     return _get_default_config("config_omnitact.yml")
 
 def get_background_image_path():
-    return _get_default_config("bg.npy")
+    return _get_default_config("bg.jpg")
 
 @dataclass
 class Link:

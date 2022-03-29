@@ -18,9 +18,6 @@ The handle for OSMesa is osmesa.
 Default is pyglet, which requires active window
 """
 
-# import os
-# os.environ["PYOPENGL_PLATFORM"] = "egl"
-
 import logging
 
 import cv2
@@ -49,7 +46,7 @@ def matrix2euler(pose, xyz="xyz", degrees=False):
     return angles, translation
 
 class Renderer:
-    def __init__(self, width, height, background, config_path):
+    def __init__(self, width, height, background, config_path, headless = False):
         """
 
         :param width: scalar
@@ -57,6 +54,11 @@ class Renderer:
         :param background: image
         :param config_path:
         """
+
+        if headless:
+            import os
+            os.environ["PYOPENGL_PLATFORM"] = "egl"
+        
         self._width = width
         self._height = height
 
@@ -112,6 +114,10 @@ class Renderer:
     def background(self):
         return self._background_real
 
+    @property
+    def f(self):
+        return self.focal_length
+
     def _init_pyrender(self):
         """
         Initialize pyrender
@@ -136,6 +142,10 @@ class Renderer:
         self._init_camera()
         self._init_light()
 
+        yfov = self.conf.sensor.camera[0].yfov 
+        # P = self.camera_nodes[0].camera.get_projection_matrix()
+        self.focal_length = 0.5 * self.height / np.tan(np.deg2rad(yfov)/2.0)
+
         self.r = pyrender.OffscreenRenderer(self.width, self.height)
 
         colors, depths = self.render(object_poses=None, noise=False, calibration=False)
@@ -143,6 +153,9 @@ class Renderer:
         self.depth0 = depths
         self._background_sim = colors
 
+    def _close_pyrender(self):
+        self.r.delete()
+    
     def _generate_gel_trimesh(self):
 
         # Load config
