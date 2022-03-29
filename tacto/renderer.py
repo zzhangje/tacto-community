@@ -26,6 +26,7 @@ import pyrender
 import trimesh
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation as R
+import copy 
 
 logger = logging.getLogger(__name__)
 
@@ -136,11 +137,15 @@ class Renderer:
         self.current_object_nodes = {}
 
         self.current_light_nodes = []
+        self.current_light_nodes_depth = []
         self.cam_light_ids = []
 
         self._init_gel()
         self._init_camera()
-        self._init_light()
+
+        # Load light from config file
+        self.default_light = self.conf.sensor.lights
+        self._init_light(self.default_light)
 
         yfov = self.conf.sensor.camera[0].yfov 
         # P = self.camera_nodes[0].camera.get_projection_matrix()
@@ -148,11 +153,13 @@ class Renderer:
 
         self.r = pyrender.OffscreenRenderer(self.width, self.height)
 
-        colors, depths = self.render(object_poses=None, noise=False, calibration=False)
+        self.get_background_sim()
 
+    def get_background_sim(self):
+        colors, depths = self.render(object_poses=None, noise=False, calibration=False)
         self.depth0 = depths
         self._background_sim = colors
-
+        
     def _close_pyrender(self):
         self.r.delete()
     
@@ -306,13 +313,11 @@ class Renderer:
             # Add corresponding light for rendering the camera
             self.cam_light_ids.append(list(cami.lightIDList))
 
-    def _init_light(self):
+
+    def _init_light(self, light):
         """
         Set up light
         """
-
-        # Load light from config file
-        light = self.conf.sensor.lights
 
         origin = np.array(light.origin)
 
@@ -376,6 +381,43 @@ class Renderer:
             # Add extra light node into scene_depth
             light_node_depth = pyrender.Node(light=light, matrix=light_pose_0)
             self.scene_depth.add_node(light_node_depth)
+            self.current_light_nodes_depth.append(light_node_depth)
+
+    def update_light(self, lightIDList):
+        """
+        Update the light node based on lightIDList, remove the previous light
+        """
+        # Remove previous light nodes
+        for node in self.current_light_nodes:
+            self.scene.remove_node(node)
+
+        # Add light nodes
+        self.current_light_nodes = []
+        for i in lightIDList:
+            light_node = self.light_nodes[i]
+            self.scene.add_node(light_node)
+            self.current_light_nodes.append(light_node)
+
+    def randomize_light(self):
+        # remove existing 
+        self.light_nodes = []
+        self.light_poses0 = []
+        for node in self.current_light_nodes:
+            self.scene.remove_node(node)
+        for node in self.current_light_nodes_depth:
+            self.scene_depth.remove_node(node)
+        self.current_light_nodes = []
+        self.current_light_nodes_depth = []
+
+        light = copy.deepcopy(self.default_light)
+
+        # randomize self.conf.sensor.lights properties 
+        light.origin = (np.array(light.origin) + np.random.normal(loc = 0.0, scale = 1e-3, size=3)).tolist() #1mm variation in light origin
+        light.xrtheta.rs = (np.array(light.xrtheta.rs) + np.random.normal(loc = 0.0, scale = 1e-3, size=3)).tolist() #1mm variation in radial light position
+        light.xrtheta.thetas = (np.array(light.xrtheta.thetas) + np.random.normal(loc = 0.0, scale = 5, size=3)).tolist() #5 deg variation in theta position
+        light.intensities = (np.array(light.intensities) + np.random.normal(loc = 0.0, scale = 0.5, size=3)).tolist() # 1 unit variation in lighting
+        self._init_light(light)
+        # self.get_background_sim()
 
     def add_object(
         self, objTrimesh, obj_name, position=[0, 0, 0], orientation=[0, 0, 0]
@@ -430,21 +472,6 @@ class Renderer:
         pose = euler2matrix(angles=orientation, translation=position)
         self.scene.set_pose(node, pose=pose)
 
-    def update_light(self, lightIDList):
-        """
-        Update the light node based on lightIDList, remove the previous light
-        """
-        # Remove previous light nodes
-        for node in self.current_light_nodes:
-            self.scene.remove_node(node)
-
-        # Add light nodes
-        self.current_light_nodes = []
-        for i in lightIDList:
-            light_node = self.light_nodes[i]
-            self.scene.add_node(light_node)
-            self.current_light_nodes.append(light_node)
-
     def _add_noise(self, color):
         """
         Add Gaussian noise to the RGB image
@@ -481,7 +508,7 @@ class Renderer:
 
         if self._background_real is not None:
             # Simulated difference image, with scaling factor 0.5
-            diff = (color.astype(np.float)[:, :, :3] - self._background_sim[camera_index][:, :, :3]) * 0.5
+            diff = (color.astype(np.float) - self._background_sim[camera_index]) * 0.5
 
             # Add low-pass filter to match real readings
             diff = cv2.GaussianBlur(diff, (7, 7), 0)

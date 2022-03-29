@@ -45,7 +45,7 @@ sensor:
       thetas: [30, 150, 270] # theta in polar coordinates, in degrees
     
     colors: [[0, 1, 0], [1, 0, 0], [0, 0, 1]] # R G B color
-    intensities: [3.5, 3.5, 3.5] # light intensity
+    intensities: [2, 2, 2] # light intensity
 
   noise: # Gaussian noise calibrated on output [0, 255]
     color:
