@@ -33,6 +33,7 @@ Alternatively, you can manually clone the repository and install the package usi
 ```bash
 git clone https://github.com/facebookresearch/tacto.git
 cd tacto
+pip install -r requirements.txt
 pip install -e .
 ```
 
