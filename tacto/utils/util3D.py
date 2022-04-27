@@ -312,81 +312,7 @@ class Util3D:
         p.close()
         pv.close_all()
 
-    def animateMeasurements(self, poses, heightmaps, pointclouds_world, images, contactmasks, save_path = None):
-        # plot 2: mesh and arrows 
-        pv.global_theme.multi_rendering_splitting_position = 0.7
-
-        p = pv.Plotter(shape='1|3', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
-        p.show(auto_close = not self.off_screen)
-        p.open_movie(save_path + ".mp4", framerate=10)
-        print("Animating measurement path at {}".format(save_path + ".mp4"))
-
-        # image files 
-        # imageFiles = sorted(os.listdir(imagePath), key=lambda y: int(y.split(".")[0]))
-
-        # mesh with measurements 
-        p.subplot(0)
-        dargs = dict(color = "grey", ambient=0.6, opacity=0.8, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
-        p.add_mesh(self.mesh, **dargs)
-        p.set_focus(self.mesh.center)
-        # p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
-        p.camera.Zoom(3)
-        p.camera_set = True
-
-        quivers = pose2quiver(poses, 1e-3) # compensate for the penetration depth
-        # generate the trajectory spline
-        spline = pv.Spline(poses[:, :3] + quivers["zvectors"], poses[:, :3].shape[0])
-        # plot without scalars
-        p.add_mesh(spline, line_width=4, color="k")
-
-        pbar = tqdm(total=poses.shape[0])
-
-        for i, (pose, heightmap, pointcloud_world) in enumerate(zip(poses, heightmaps, pointclouds_world)):
-            # visualize pointcloud
-            p.subplot(0)
-            if pointcloud_world.shape[0] == 0:
-                continue
-            downpcd =  pointcloud_world[np.random.choice(pointcloud_world.shape[0], pointcloud_world.shape[0]//10, replace=False), :]
-            pc = pv.PolyData(downpcd)
-            p.add_points(pc, render_points_as_spheres=True, color = "#26D701", point_size=3)
-
-            # visualize gelsight 
-            sensor_transform = gen_quat_t(pose)
-            transformed_gelsight_mesh = self.gelsight_mesh.transform(sensor_transform, inplace = False)
-            dargs = dict(color = "black", ambient=0.6, opacity=0.3, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
-            gelsightActor = p.add_mesh(transformed_gelsight_mesh, **dargs)
-
-            # visualize gelsight image 
-            p.subplot(1)
-            image = images[i]
-            imagetex = pv.numpy_to_texture(image)
-            plane = pv.Plane(i_size = image.shape[0] * 0.001, j_size = image.shape[1] * 0.001, i_resolution = image.shape[0], j_resolution = image.shape[1])
-            imageActor = p.add_mesh(plane, smooth_shading=True, texture=imagetex)
-
-            # visualize contact masks
-            p.subplot(2)
-            image = contactmasks[i].astype(np.float32) * 255.0
-            imagetex = pv.numpy_to_texture(image)
-            maskActor = p.add_mesh(plane, smooth_shading=True, texture=imagetex)
-
-            # visualize heightmaps
-            p.subplot(3)
-            image = -heightmap * contactmasks[i].astype(np.float32)
-            imagetex = pv.numpy_to_texture(image)
-            viridis = cm.get_cmap('viridis')
-            heightmapActor = p.add_mesh(plane, smooth_shading=True, texture=imagetex, cmap = viridis)
-
-            p.write_frame()  # write initial data
-            p.remove_actor(gelsightActor)
-            p.remove_actor(heightmapActor)
-            p.remove_actor(imageActor)
-            p.remove_actor(maskActor)
-            pbar.update(1)
-        pbar.close()
-        p.close()
-        pv.close_all()
-
-    def animateMeasurementsReal(self, poses, heightmaps, pointclouds_world, images, contactmasks, save_path = None):
+    def animate(self, poses, heightmaps, pointclouds_world, images, contactmasks, save_path = None):
         poses = np.vstack(poses)
         # plot 2: mesh and arrows 
         pv.global_theme.multi_rendering_splitting_position = 0.7
@@ -454,19 +380,15 @@ class Util3D:
         p.close()
         pv.close_all()
 
-    def vizMeasurements(self, poses, pointclouds, annotations = None, save_path = None, decimation_factor = 10):
+    def vizMeasurements(self, poses, pointclouds, save_path = None, decimation_factor = 5):
         if type(pointclouds) is not list:
             temp = pointclouds
             pointclouds = [None] * 1
             pointclouds[0] = temp
         # quivers = pose2quiver(poses, self.mesh.length/50)      
 
-        quivers = pose2quiver(poses, 2e-3) # compensate for the penetration depth
-        poses[:, :3] += quivers["zvectors"]
-        quivers = pose2quiver(poses, self.mesh.length/50) # compensate for the penetration depth
+        quivers = pose2quiver(poses, self.mesh.length/50) # compensate for the pen depth
         # generate the trajectory spline
-        # spline = pv.Spline(poses[:, :3] + quivers["zvectors"], poses[:, :3].shape[0])
-
 
         # plot 2: mesh and arrows 
         p = pv.Plotter(off_screen=self.off_screen, window_size=[2000, 2000])
@@ -482,7 +404,9 @@ class Util3D:
         dargs = dict(color="grey", ambient=0.6, opacity=0.6, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
         p.add_mesh(self.mesh, **dargs)
         # plot without scalars
-        # p.add_mesh(spline, line_width=4, color="k")
+
+        spline = pv.lines_from_points(poses[:, :3])
+        p.add_mesh(spline, line_width=3, color="k")
 
         final_pc = np.empty((0, 3))
         for i, pointcloud in enumerate(pointclouds):
@@ -490,11 +414,14 @@ class Util3D:
                 continue
             downpcd =  pointcloud[np.random.choice(pointcloud.shape[0], pointcloud.shape[0]//decimation_factor, replace=False), :]
             final_pc = np.append(final_pc, downpcd)
-        pc = pv.PolyData(final_pc)
-        p.add_points(pc, render_points_as_spheres=True, color = "#26D701", point_size=3)
+        
+        if final_pc.shape[0]:
+            pc = pv.PolyData(final_pc)
+            p.add_points(pc, render_points_as_spheres=True, color = "#26D701", point_size=3)
     
         if save_path:
             p.show(screenshot=save_path)
+            print(f"Save path: {save_path}")
         else:
             p.show(auto_close= not self.off_screen)
         p.close()
@@ -560,6 +487,12 @@ class Util3D:
         end_point_idx = np.argmin(np.linalg.norm(end_point - self.mesh.points, axis=1))
         path_pts = self.mesh.geodesic(start_point_idx, end_point_idx) # shares precomputation for repeated solves
         path_distance = self.mesh.geodesic_distance(start_point_idx, end_point_idx)
+
+        # DEBUG: plot geodesic path         
+        # p = pv.Plotter()
+        # p.add_mesh(path_pts, line_width=10, color="red", label="Geodesic Path")
+        # p.add_mesh(self.mesh, show_edges=True)
+        # p.show()
         return path_pts.points, path_distance
 
     def getShortestPath(self, start_point, end_point):

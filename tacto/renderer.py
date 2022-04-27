@@ -23,6 +23,7 @@ import logging
 import cv2
 import numpy as np
 import pyrender
+from tacto.utils.utils import gen_t_quat
 import trimesh
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation as R
@@ -30,15 +31,14 @@ import copy
 
 logger = logging.getLogger(__name__)
 
+DEBUG = False
 
 def euler2matrix(angles=[0, 0, 0], translation=[0, 0, 0], xyz="xyz", degrees=False):
     r = R.from_euler(xyz, angles, degrees=degrees)
-
     pose = np.eye(4)
     pose[:3, 3] = translation
     pose[:3, :3] = r.as_matrix()
     return pose
-
 
 def matrix2euler(pose, xyz="xyz", degrees=False):
     r = R.from_matrix(pose[:3, :3])
@@ -151,9 +151,12 @@ class Renderer:
         # P = self.camera_nodes[0].camera.get_projection_matrix()
         self.focal_length = 0.5 * self.height / np.tan(np.deg2rad(yfov)/2.0)
 
-        self.r = pyrender.OffscreenRenderer(self.width, self.height)
-
-        self.get_background_sim()
+        if DEBUG: 
+            self.r = pyrender.Renderer(self.width, self.height)
+            print("\n-----------Debug mode, on screen rendering of poses-----------\n")
+        else:
+            self.r = pyrender.OffscreenRenderer(self.width, self.height)
+            self.get_background_sim()
 
     def get_background_sim(self):
         colors, depths = self.render(object_poses=None, noise=False, calibration=False)
@@ -445,7 +448,7 @@ class Renderer:
         """
         Update sensor pose (including camera, lighting, and gel surface)
         """
-        pose = tf_matrix
+        pose = tf_matrix.copy()
 
         # Update camera
         for i in range(self.nb_cam):
@@ -461,7 +464,10 @@ class Renderer:
             light_pose = pose.dot(self.light_poses0[i])
             light_node = self.light_nodes[i]
             light_node.matrix = light_pose
-        # pyrender.Viewer(self.scene, use_raymond_lighting=True)
+
+        if DEBUG: 
+            pyrender.Viewer(self.scene, use_raymond_lighting=True)
+        # print(f"Gel pose: {gen_t_quat(gel_pose)}, \nCam pose: {gen_t_quat(camera_pose)}")
 
     def update_object_pose(self, obj_name, position, orientation):
         """

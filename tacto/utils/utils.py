@@ -3,7 +3,7 @@ from scipy.spatial.transform import Rotation as R
 
 
 def gen_quat_t(quat):
-    # convert [x, y, z, qx, qy, qz, qw] to 4 x 4 transformation matrix
+    '''convert [x, y, z, qx, qy, qz, qw] to 4 x 4 transformation matrix '''
     T = np.zeros((4, 4))
     T[:3,:3] = R.from_quat(quat[3:]).as_matrix()
     T[0:3,3] = quat[:3] # t
@@ -11,7 +11,7 @@ def gen_quat_t(quat):
     return T
 
 def gen_t_quat(pose):
-    # convert 4 x 4 transformation matrix to [x, y, z, qx, qy, qz, qw]
+    '''convert 4 x 4 transformation matrix to [x, y, z, qx, qy, qz, qw]'''
     r = R.from_matrix(pose[0:3,0:3])
     q = r.as_quat() # qx, qy, qz, qw
     t = pose[0:3,3].T

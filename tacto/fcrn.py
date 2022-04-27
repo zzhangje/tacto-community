@@ -1,8 +1,8 @@
 import torch
 import torch
 import torch.nn.functional
-from FCRN.fcrn import FCRN_net
-from FCRN.loader import TestDataLoader
+from .fcrn_helpers.fcrn import FCRN_net
+from .fcrn_helpers.loader import TestDataLoader
 import numpy as np
 import cv2
 
@@ -14,20 +14,24 @@ import pickle
 import collections 
 from shapeclosure.misc import plotSubplots
 
-class FCRN:
-    def __init__(self, weights_path, bg, blend_sz = 0, gpu = True):
+class fcrn:
+    def __init__(self, weights_path, bg, blend_sz = 0, real = False, gpu = True):
 
         # print("setting devices...")
         use_cuda = torch.cuda.is_available() if gpu else False
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
 
+        if real: 
+            self.b, self.r = 20, 0.8 
+        else:
+            self.b, self.r = 1, 0.2        
         # print("setting parameters...")
         self.batch_size = 1
         self.params = {'batch_size': self.batch_size, 'shuffle': False}
 
         self.model = FCRN_net(self.batch_size)
         checkpoint = torch.load(weights_path, map_location=self.device)
-        print("=> loaded FCRN (epoch {})".format(checkpoint['epoch']))
+        print("=> loaded fcrn (epoch {})".format(checkpoint['epoch']))
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         self.model.to(self.device)
@@ -70,13 +74,13 @@ class FCRN:
                 return self.blend_heightmaps(output)
 
     def heightmap2mask(self, heightmap):
-        heightmap = heightmap[20:-20,20:-20]
-        init_height = self.bg[20:-20,20:-20]
+        heightmap = heightmap[self.b:-self.b,self.b:-self.b]
+        init_height = self.bg[self.b:-self.b,self.b:-self.b]
         diff_heights = heightmap - init_height
         diff_heights[diff_heights<5]=0
-        contact_mask = diff_heights > np.percentile(diff_heights, 90)*0.8 #*0.8
+        contact_mask = diff_heights > np.percentile(diff_heights, 90) * self.r
         padded_contact_mask = np.zeros(self.bg.shape, dtype=bool)
-        padded_contact_mask[20:-20,20:-20] = contact_mask
+        padded_contact_mask[self.b:-self.b,self.b:-self.b] = contact_mask
         return padded_contact_mask
 
 if __name__ == "__main__":
@@ -89,7 +93,7 @@ if __name__ == "__main__":
 
     u3d = Util3D(obj_path, off_screen = False, virtual_buff = False)
 
-    FCRNModel = FCRN()
+    FCRNModel = fcrn()
     tacRender = TactoRender(obj_path=obj_path, headless = True)
 
     # load images and ground truth depthmaps  

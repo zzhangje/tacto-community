@@ -9,7 +9,7 @@ import numpy as np
 from .utils.utils import *
 from .loaders.ObjectLoader import ObjectLoader
 import tacto 
-from .renderer import euler2matrix
+from .renderer import euler2matrix, DEBUG
 from .utils.utils import *
 import cv2 
 
@@ -22,11 +22,12 @@ class TactoRender:
         # Create renderer
         self.renderer = tacto.Renderer(width=240, height=320, background= cv2.imread(tacto.get_background_image_path()), config_path=tacto.get_digit_shadow_config_path(), headless = headless)
 
-        self.cam_dist = self.renderer.conf.sensor.gel.origin[0]
-        _, self.bg_depth = self.renderer.render()
+        self.cam_dist = 0.022
 
-        self.bg_depth = self.bg_depth[0]
-        self.bg_depth_pix = self.correct_pyrender_height_map(self.bg_depth)
+        if not DEBUG:
+            _, self.bg_depth = self.renderer.render()
+            self.bg_depth = self.bg_depth[0]
+            self.bg_depth_pix = self.correct_pyrender_height_map(self.bg_depth)
 
         if obj_path is not None:
             self.obj_loader = ObjectLoader(obj_path)
@@ -42,84 +43,50 @@ class TactoRender:
         else:
             self.bg_depth
     
-    def update_pose_given_pose(self, press_depth, pose):
+    def update_pose_given_pose(self, press_depth, gelpose):
         self.press_depth = press_depth
-        pose = self.adjustPose(pose)
-        self.renderer.update_camera_pose_from_matrix(pose)
+        campose = self.gel2cam(gelpose)
+        gelpose, campose = self.addPenetration(gelpose), self.addPenetration(campose)
+        self.renderer.update_camera_pose_from_matrix(self.switchAxes(campose))
+        # self.renderer.update_camera_pose_from_matrix(campose)
 
     def pix2meter(self, pix):
         return pix * pixmm / 1000.0
     
     def meter2pix(self, m):
         return m * 1000.0 / pixmm
+        
+    def update_pose_given_point(self, point, press_depth, shear_mag, delta):
+        dist = np.linalg.norm(point - self.obj_loader.obj_vertices, axis=1)
+        idx = np.argmin(dist)
 
-    def update_pose_given_vertex(self, idx, press_depth, shear_mag):
-        # idx: the idx vertice
-        # get a new pose
+        # idx: the idx vertice, get a new pose
         new_position = self.obj_loader.obj_vertices[idx].copy()
         new_orientation = self.obj_loader.obj_normals[idx].copy()
 
         delta = np.random.uniform(low=0.0, high=0.08, size=(1,))[0]
         new_pose = gen_pose(new_position, new_orientation, shear_mag, delta).squeeze()
-        self.press_depth = press_depth
-        new_pose = self.adjustPose(new_pose)
-        self.renderer.update_camera_pose_from_matrix(new_pose)
-        
-    def update_pose_given_point(self, point, press_depth, shear_mag, delta):
-        dist = np.linalg.norm(point - self.obj_loader.obj_vertices, axis=1)
-        idx = np.argmin(dist)
-        self.update_pose(idx, press_depth, shear_mag)
+        self.update_pose_given_pose(press_depth, new_pose)
 
-    def adjustPose(self, pose):
-        # -Z camera facing to +X camera facing 
-        switch_axes = euler2matrix(angles = [0, 90, 0], xyz="xyz", degrees=True)
-        pose = np.matmul(pose, switch_axes)
-
-        # convert gel pose to camera pose
-        pose = self.gel2cam(pose)
-
-        # add penetration
+    def switchAxes(self, pose):
+        # Opposite of transformation in config_digit_shadow.yml
+        switch_axes = euler2matrix(angles = [-90, 0, 90], xyz="zyx", degrees=True)
+        return np.matmul(pose, switch_axes)
+    
+    def addPenetration(self, pose):
         pen_mat = np.eye(4)
-        pen_mat[0,3] = self.press_depth
-        pose = np.matmul(pose, pen_mat)
-        return pose
+        pen_mat[2,3] = -self.press_depth
+        return np.matmul(pose, pen_mat) 
 
-    def gel2cam(self, gel_poses):
-        if gel_poses.ndim == 2:
-            gel_poses = np.expand_dims(gel_poses, axis=2)
-            single_pose = True
-        else:
-            single_pose = False
+    def gel2cam(self, gel_pose):
+        cam_tf = np.eye(4)
+        cam_tf[2, 3] = self.cam_dist
+        return np.matmul(gel_pose, cam_tf) 
 
-        cam_tf = np.array([
-            [1.0, 0.0,  0.0, -self.cam_dist],
-            [0.0, 1.0,  0.0, 0.0],
-            [0.0, 0.0,  1.0, 0.0],
-            [0.0, 0.0,  0.0, 1.0],
-        ])
-        cam_tf = np.repeat(cam_tf[:, :, np.newaxis], gel_poses.shape[2], axis=2)
-
-        T_cam = np.einsum('ijn,jkn->ikn', gel_poses, cam_tf)
-
-        return T_cam.squeeze() if single_pose else T_cam
-
-    def cam2gel(self, cam_poses):
-        if cam_poses.ndim == 2:
-            cam_poses = np.expand_dims(cam_poses, axis=2)
-            single_pose = True
-        else:
-            single_pose = False
-
-        gel_tf = np.array([
-            [1.0, 0.0,  0.0, self.cam_dist],
-            [0.0, 1.0,  0.0, 0.0],
-            [0.0, 0.0,  1.0, 0.0],
-            [0.0, 0.0,  0.0, 1.0],
-        ])
-        gel_tf = np.repeat(gel_tf[:, :, np.newaxis], cam_poses.shape[2], axis=2)
-
-        T_gel = np.einsum('ijn,jkn->ikn', cam_poses, gel_tf)
-        return T_gel.squeeze() if single_pose else T_gel
+    def cam2gel(self, cam_pose):
+        cam_tf = np.eye(4)
+        cam_tf[2, 3] = -self.cam_dist
+        return np.matmul(cam_pose, cam_tf) 
 
     # input depth is in camera frame here 
     def render(self):
@@ -133,7 +100,6 @@ class TactoRender:
         if self.randomize:
             self.renderer.randomize_light()
         return color, gel_depth, contact_mask
-
 
     def correct_pyrender_height_map(self, height_map):
         '''
@@ -155,13 +121,15 @@ class TactoRender:
     def get_cam_pose_matrix(self):
         return self.renderer.camera_nodes[0].matrix
 
+    def get_cam_pose(self):
+        # print(f"Cam pose: {gen_t_quat(self.get_cam_pose_matrix())}")
+        return gen_t_quat(self.get_cam_pose_matrix())
+
     def get_gel_pose_matrix(self):
         return self.cam2gel(self.get_cam_pose_matrix())
 
-    def get_cam_pose(self):
-        return gen_t_quat(self.get_cam_pose_matrix())
-
     def get_gel_pose(self):
+        # print(f"Gel pose: {gen_t_quat(self.get_gel_pose_matrix())}")
         return gen_t_quat(self.get_gel_pose_matrix())
 
     def heightmap2Pointcloud(self, depth, contact_mask = None):
@@ -177,9 +145,7 @@ class TactoRender:
         else:
             heightmapValid = depth
 
-        f = self.renderer.f
-        w = self.renderer.width
-        h = self.renderer.height
+        f, w, h = self.renderer.f, self.renderer.width/2., self.renderer.height/2.
 
         # (0, 640) and (0, 480)
         xvals = np.arange(heightmapValid.shape[1])
@@ -235,14 +201,14 @@ if __name__ == "__main__":
     press_depth = 0.001 # in meter
     vertix_idxs = np.random.choice(1000, size = 500) # [159] 
     # try both sensor models over different vertices 
-    tacRenderDigit = TactoRender(obj_path, randomize = True, headless = use_cluster)
+    tacRender = TactoRender(obj_path, randomize = True, headless = use_cluster)
 
     from PIL import Image
     images = []
     vertix_idxs = [857] * 100
     for vertix_idx in vertix_idxs:
-        tacRenderDigit.update_pose_given_vertex(vertix_idx, press_depth, shear_mag = 0.0)
-        tactile_img, height_map, contact_mask  = tacRenderDigit.render()
+        tacRender.update_pose_given_vertex(vertix_idx, press_depth, shear_mag = 0.0)
+        tactile_img, height_map, contact_mask  = tacRender.render()
         # plotSubplots([0.022 - height_map, tactile_img/255.0, contact_mask], 
         #              [["v : {} Heightmap DIGIT".format(vertix_idx), "Tactile image DIGIT", "Contact Mask DIGIT"]])
         images.append(Image.fromarray(tactile_img))

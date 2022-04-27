@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from . import utils  as utils
-from .util3D import Utils3D
+from .util3D import Util3D
 
 __author__ = "Wang, Shaoxiong and Lambeta, Mike and Chou, Po-Wei and Calandra, Roberto"
 __contact__ = "sxwang@fb.com, lambetam@fb.com, poweic@fb.com, rcalandra@fb.com"
