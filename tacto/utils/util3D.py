@@ -290,7 +290,7 @@ class Util3D:
     '''Save contact masks as boolean images'''
     def saveContactMasks(self, contactMasks, save_path):
         for i, contactMask in enumerate(contactMasks):
-            self.saveHeightmap(contactMask, i, save_path)
+            self.saveContactMask(contactMask, i, save_path)
         return
 
     def vizSE3Grid(self, se3_grid, voxels, save_path = None):
@@ -319,7 +319,7 @@ class Util3D:
 
         p = pv.Plotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
         p.show(auto_close = not self.off_screen)
-        p.open_movie(save_path + ".mp4", framerate=60)
+        p.open_movie(save_path + ".mp4", framerate=30)
         print("Animating measurement path at {}".format(save_path + ".mp4"))
         
         # _ = p.add_axes(box=True)
