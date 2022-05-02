@@ -47,8 +47,8 @@ class Util3D:
 
         self.off_screen = off_screen
         pv.global_theme.multi_rendering_splitting_position = 0.7
-        # self.p = pv.Plotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
-        self.p = BackgroundPlotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=(1920, 1200))
+        self.p = pv.Plotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
+        # self.p = BackgroundPlotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=(1920, 1200))
         # print(self.p.ren_win.ReportCapabilities())
     
     def initDensityMesh(self, gt_pose, save_path):
