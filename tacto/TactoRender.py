@@ -46,7 +46,7 @@ class TactoRender:
     def update_pose_given_pose(self, press_depth, gelpose):
         self.press_depth = press_depth
         campose = self.gel2cam(gelpose)
-        gelpose, campose = self.addPenetration(gelpose), self.addPenetration(campose)
+        campose = self.addPenetration(campose)
         self.renderer.update_camera_pose_from_matrix(self.switchAxes(campose))
         # self.renderer.update_camera_pose_from_matrix(campose)
 

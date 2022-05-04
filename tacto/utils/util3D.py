@@ -33,10 +33,10 @@ class Util3D:
         self.mesh = pv.read(self.mesh_path)
         self.framerate = 10
         # load and rotate gelsight mesh 
-        if virtual_buff:
-            self.gelsight_mesh = pv.read("/home/rpluser/Documents/suddhu/projects/shape-closures/models/digit/digit.STL")
-        else:
-            self.gelsight_mesh = pv.read("/home/suddhu/rpl/datasets/YCBModels/digit/digit.STL")
+        # if virtual_buff:
+        #     self.gelsight_mesh = pv.read("/home/rpluser/Documents/suddhu/projects/shape-closures/models/digit/digit.STL")
+        # else:
+        #     self.gelsight_mesh = pv.read("/home/suddhu/rpl/datasets/YCBModels/digit/digit.STL")
         # T = np.eye(4)
         # T[:3,:3] = R.from_euler('xyz', [0, 90, 0], degrees=True).as_matrix()
         # self.gelsight_mesh.rotate_y(90, point=self.gelsight_mesh.center, inplace = True)
@@ -47,14 +47,17 @@ class Util3D:
 
         self.off_screen = off_screen
         pv.global_theme.multi_rendering_splitting_position = 0.7
-        self.p = pv.Plotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
-        # self.p = BackgroundPlotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=(1920, 1200))
+
+        if not off_screen:
+            self.p = BackgroundPlotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=(1920, 1200))
+        else:
+            self.p = pv.Plotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
         # print(self.p.ren_win.ReportCapabilities())
     
     def initDensityMesh(self, gt_pose, save_path):
         self.p.subplot(0)
         gt_pose = np.atleast_2d(gt_pose)
-        dargs = dict(color="grey", ambient=0.6, opacity=0.8, smooth_shading=True, specular=1.0, show_scalar_bar=False)
+        dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False)
         self.meshActor = self.p.add_mesh(self.mesh, **dargs)
         self.p.set_focus(self.mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
@@ -72,7 +75,8 @@ class Util3D:
         self.p.subplot(2)
         self.p.camera.Zoom(3)
 
-        self.p.show()
+        if not self.off_screen:
+            self.p.show() 
         self.p.open_movie(save_path + ".mp4", framerate=self.framerate)
         print(f"Animating particle filter at {save_path}.mp4")
 
@@ -149,8 +153,6 @@ class Util3D:
         viridis = cm.get_cmap('viridis')
         self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = viridis)
         
-
-
         # mean pose 
         # mean_pose, var_pose = self.getMeanAndVariance(samples, densities)
         # mean_quiver = pose2quiver(mean_pose, 1e-2)
@@ -199,7 +201,7 @@ class Util3D:
         samplePoints = pv.PolyData(samples[:, :3])
         samplePoints["similarity"] = clusters
         
-        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=5e-3)
+        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/80.0)
         p = pv.Plotter(off_screen=self.off_screen, window_size=[1000, 1000])
 
         # replace black with gray 
@@ -395,6 +397,42 @@ class Util3D:
         pbar.close()
         p.close()
         pv.close_all()
+
+    def vizPoses(self, query_pose, target_poses):
+        p = pv.Plotter(window_size=[2000, 2000])
+        quivers = pose2quiver(target_poses, self.mesh.length/50) # compensate for the pen depth
+
+        quivers.set_active_vectors("xvectors")
+        dargs = dict(color="red", show_scalar_bar=False)
+        p.add_mesh(quivers.arrows, **dargs)
+        quivers.set_active_vectors("yvectors")
+        dargs = dict(color="green", show_scalar_bar=False)
+        p.add_mesh(quivers.arrows, **dargs)
+        quivers.set_active_vectors("zvectors")
+        dargs = dict(color="blue", show_scalar_bar=False)
+        p.add_mesh(quivers.arrows, **dargs)
+
+
+        quivers = pose2quiver(query_pose, self.mesh.length/25) # compensate for the pen depth
+
+        quivers.set_active_vectors("xvectors")
+        dargs = dict(color="red", show_scalar_bar=False)
+        p.add_mesh(quivers.arrows, **dargs)
+        quivers.set_active_vectors("yvectors")
+        dargs = dict(color="green", show_scalar_bar=False)
+        p.add_mesh(quivers.arrows, **dargs)
+        quivers.set_active_vectors("zvectors")
+        dargs = dict(color="blue", show_scalar_bar=False)
+        p.add_mesh(quivers.arrows, **dargs)
+
+        dargs = dict(color="grey", ambient=0.6, opacity=0.6, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
+        p.add_mesh(self.mesh, **dargs)
+
+        p.show()
+        p.close()
+        
+        pv.close_all()
+
 
     def vizMeasurements(self, poses, pointclouds, save_path = None, decimation_factor = 5):
         if type(pointclouds) is not list:
