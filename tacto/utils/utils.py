@@ -74,11 +74,9 @@ def gen_pose(vertices, normals, shear_mag, delta):
     v = v/np.linalg.norm(v, axis=1).reshape(-1, 1) # ITS THE FIX!
 
     # find corner cases 
-    zero_idx = np.isclose(np.linalg.norm(v, axis=1), 0.0, atol=0.1) #handle https://math.stackexchange.com/a/293130
-    # zero_idx_up = zero_idx
-    # zero_idx_down = False
-    zero_idx_up = np.logical_and(zero_idx,normals[:, 2] > 0) # pointing up 
-    zero_idx_down = np.logical_and(zero_idx,normals[:, 2] < 0) # pointing down
+    check = np.einsum('ij,ij->i', normals, np.array([[0, 0, 1]]))
+    zero_idx_up = check > 0.9 # pointing up 
+    zero_idx_down = check < -0.9 # pointing down
 
     v_skew, sampledNormals_skew = skewMat(v), skewMat(normals)
 
@@ -94,7 +92,7 @@ def gen_pose(vertices, normals, shear_mag, delta):
     # for i in range(Rot.shape[2]):
     #     if np.linalg.det(Rot[:, :, i]) == 0:
     #         Rot[:, :, i] =  np.identity(3)
-    
+
     if np.any(zero_idx_up):
         Rot[:3,:3, zero_idx_up] = np.dstack([np.identity(3)]*np.sum(zero_idx_up))
     if np.any(zero_idx_down):

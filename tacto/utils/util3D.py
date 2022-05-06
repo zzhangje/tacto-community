@@ -33,10 +33,10 @@ class Util3D:
         self.mesh = pv.read(self.mesh_path)
         self.framerate = 10
         # load and rotate gelsight mesh 
-        # if virtual_buff:
-        #     self.gelsight_mesh = pv.read("/home/rpluser/Documents/suddhu/projects/shape-closures/models/digit/digit.STL")
-        # else:
-        #     self.gelsight_mesh = pv.read("/home/suddhu/rpl/datasets/YCBModels/digit/digit.STL")
+        if virtual_buff:
+            self.gelsight_mesh = pv.read("/home/rpluser/Documents/suddhu/projects/shape-closures/models/digit/digit.STL")
+        else:
+            self.gelsight_mesh = pv.read("/home/suddhu/rpl/datasets/YCBModels/digit/digit.STL")
         # T = np.eye(4)
         # T[:3,:3] = R.from_euler('xyz', [0, 90, 0], degrees=True).as_matrix()
         # self.gelsight_mesh.rotate_y(90, point=self.gelsight_mesh.center, inplace = True)
@@ -48,18 +48,30 @@ class Util3D:
         self.off_screen = off_screen
         pv.global_theme.multi_rendering_splitting_position = 0.7
 
+        shape = (2, 2)  # 5 by 4 grid
+        # First row is half the size and fourth row is double the size of the other rows
+        row_weights = [0.5, 0.5]
+        # Third column is half the size and fourth column is double size of the other columns
+        col_weights = [0.6, 0.4]
+        groups = [
+            (np.s_[:], 0),  # First group spans over all columns of the first row (0)
+            (0, 1),  # Second group spans over row 1-3 of the first column (0)
+            (1, 1),  # Second group spans over row 1-3 of the first column (0)
+        ]
         if not off_screen:
-            self.p = BackgroundPlotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=(1920, 1200))
+            # self.p = BackgroundPlotter(shape='1|2', border_color = "white", border_width = 0, off_screen=self.off_screen, window_size=(1920, 1088))
+            self.p = BackgroundPlotter(shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
         else:
-            self.p = pv.Plotter(shape='1|4', border_color = "white", off_screen=self.off_screen, window_size=[1920, 1200])
+            self.p = pv.Plotter(shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
+
         # print(self.p.ren_win.ReportCapabilities())
     
     def initDensityMesh(self, gt_pose, save_path):
-        self.p.subplot(0)
+        self.p.subplot(0, 0)
         gt_pose = np.atleast_2d(gt_pose)
         dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False)
-        self.meshActor = self.p.add_mesh(self.mesh, **dargs)
-        self.p.set_focus(self.mesh.center)
+        self.p.add_mesh(self.mesh, **dargs)
+        # self.p.set_focus(self.mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
         self.p.camera.Zoom(1)
         self.p.camera_set = True
@@ -69,33 +81,34 @@ class Util3D:
         # plot without scalars
         self.p.add_mesh(spline, line_width=8, color="k")
 
-        self.p.subplot(1)
-        self.p.camera.Zoom(3)
+        self.p.subplot(0, 1)
+        self.p.camera.Zoom(1)
 
-        self.p.subplot(2)
-        self.p.camera.Zoom(3)
+        self.p.subplot(1, 1)
+        self.p.camera.Zoom(1)
 
         if not self.off_screen:
             self.p.show() 
         self.p.open_movie(save_path + ".mp4", framerate=self.framerate)
         print(f"Animating particle filter at {save_path}.mp4")
 
-    def updateHeatmap(self, samplePoints):
-        if False:
-            self.p.remove_actor(self.meshActor)
-            HeatmapMesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius = self.mesh.length/50)
-            viridis = cm.get_cmap('viridis')
-            # viridis.colors[0] =  [189/256, 189/256, 189/256] # grey
-            dargs = dict(cmap = viridis, clim=[0, 1], scalars='similarity', interpolate_before_map = False, ambient=0.6, opacity=0.8, smooth_shading=False, show_scalar_bar=False,  silhouette=True)
-            self.meshActor = self.p.add_mesh(HeatmapMesh, **dargs)
-            self.p.set_focus(HeatmapMesh.center)
-        else:
-            viridis = cm.get_cmap('viridis')
-            viridis.colors[0] =  [189/256, 189/256, 189/256] # grey
-            dargs = dict(cmap=viridis,  clim=[0, 1], scalars="similarity", show_scalar_bar=False, reset_camera = False)
-            self.samplesActor = self.p.add_mesh(samplePoints, render_points_as_spheres=True, point_size=5, **dargs)
-        self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
-        self.p.camera_set = True
+    def updateHeatmap(self, samples, densities):
+
+        samplePoints = pv.PolyData(samples[:, :3])
+        if len(set(densities)) != 1:
+            densities = (densities - np.min(densities)) / (np.max(densities) - np.min(densities))        
+        # densities[densities < np.percentile(densities, 90)] = 0
+        samplePoints["similarity"] = densities
+        viridis = cm.get_cmap('viridis')
+        viridis.colors[0] =  [189/256, 189/256, 189/256] # grey
+        self.p.subplot(0, 0)
+        dargs = dict(cmap="viridis", clim = [0, 1],  show_scalar_bar=False, opacity=0.5, reset_camera = False)
+        self.samplesActor = self.p.add_mesh(samplePoints, render_points_as_spheres=True, point_size=5, **dargs)
+
+        # self.p.remove_actor(self.meshActor)
+        # HeatmapMesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius = self.mesh.length/50)
+        # dargs = dict(cmap = viridis, clim=[0, 1], scalars='similarity', interpolate_before_map = False, ambient=0.6, opacity=0.8, smooth_shading=False, show_scalar_bar=False,  silhouette=True)
+        # self.meshActor = self.p.add_mesh(HeatmapMesh, **dargs)
         return
 
     def updateDensityMesh(self, samples, gt_pose, densities, image, heightmap, mask, image_savepath = None):
@@ -117,14 +130,7 @@ class Util3D:
         if self.quiverZActor:
             self.p.remove_actor(self.quiverZActor)
 
-        if len(set(densities)) != 1:
-            densities = (densities - np.min(densities)) / (np.max(densities) - np.min(densities))
-        
-        samplePoints = pv.PolyData(samples[:, :3])
-        samplePoints["similarity"] = densities
-
-        self.p.subplot(0)
-        self.updateHeatmap(samplePoints)
+        self.updateHeatmap(samples, densities)
 
         # visualize gelsight 
         # sensor_transform = gen_quat_t(gt_pose)
@@ -132,6 +138,7 @@ class Util3D:
         # dargs = dict(color = "black", ambient=0.6, opacity=0.3, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
         # self.gelsightActor = self.p.add_mesh(transformed_gelsight_mesh, **dargs)
         
+        self.p.subplot(0, 0)
         # ground truth pose 
         gt_quiver = pose2quiver(gt_pose, 1e-2)
         gt_quiver.set_active_vectors("xvectors")
@@ -142,17 +149,20 @@ class Util3D:
         self.quiverZActor = self.p.add_mesh(gt_quiver.arrows, color="blue", show_scalar_bar=False)
 
         # visualize gelsight image 
-        self.p.subplot(1)
+        s = 0.002
+        self.p.subplot(0, 1)
         imagetex = pv.numpy_to_texture(image)
-        plane = pv.Plane(i_size = image.shape[1] * 0.001, j_size = image.shape[0] * 0.001, i_resolution = image.shape[1], j_resolution = image.shape[0])
-        self.imageActor = self.p.add_mesh(plane, texture=imagetex)
-        
-        self.p.subplot(2)
-        image = -heightmap * mask.astype(np.float32)
-        imagetex = pv.numpy_to_texture(image)
-        viridis = cm.get_cmap('viridis')
-        self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = viridis)
-        
+        plane = pv.Plane(i_size = image.shape[1] * s, j_size = image.shape[0] * s, i_resolution = image.shape[1] - 1, j_resolution = image.shape[0] - 1)
+        self.imageActor = self.p.add_mesh(plane, texture=imagetex, smooth_shading = True,  show_scalar_bar=False)
+        plane.points[:, -1] = 0.2
+
+        imagetex = pv.numpy_to_texture(-heightmap * mask.astype(np.float32))
+        plane = pv.Plane(i_size = image.shape[1] * s, j_size = image.shape[0] * s, i_resolution = image.shape[1] - 1, j_resolution = image.shape[0] - 1)
+        plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * s - 0.2
+        plasma = cm.get_cmap('plasma')
+        plasma.colors[0] =  [1, 1, 1] # black
+        self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
+
         # mean pose 
         # mean_pose, var_pose = self.getMeanAndVariance(samples, densities)
         # mean_quiver = pose2quiver(mean_pose, 1e-2)
@@ -201,7 +211,7 @@ class Util3D:
         samplePoints = pv.PolyData(samples[:, :3])
         samplePoints["similarity"] = clusters
         
-        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/80.0)
+        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/100.0)
         p = pv.Plotter(off_screen=self.off_screen, window_size=[1000, 1000])
 
         # replace black with gray 
