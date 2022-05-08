@@ -19,6 +19,8 @@ from PIL import Image
 from .utils import gen_quat_t
 from tqdm import tqdm 
 from pyvistaqt import BackgroundPlotter
+import trimesh 
+
 
 pv.set_plot_theme("document")
 # pv.global_theme.axes.show = True
@@ -42,8 +44,8 @@ class Util3D:
         # self.gelsight_mesh.rotate_y(90, point=self.gelsight_mesh.center, inplace = True)
 
         # self.gelsight_mesh = self.gelsight_mesh.transform(T, inplace = False)
-        self.samplesActor, self.gelsightActor, self.heightmapActor, self.imageActor = None, None, None, None
-        self.quiverXActor, self.quiverYActor, self.quiverZActor = None, None, None 
+        self.samplesActor, self.gelsightActorA, self.gelsightActorB, self.heightmapActor, self.imageActor, self.heatActor = None, None, None, None, None, None
+        self.meanQuiverXActor, self.meanQuiverYActor, self.meanQuiverZActor, self.ellipsoidActor = None, None, None, None
 
         self.off_screen = off_screen
         pv.global_theme.multi_rendering_splitting_position = 0.7
@@ -63,7 +65,6 @@ class Util3D:
             self.p = BackgroundPlotter(shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
         else:
             self.p = pv.Plotter(shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
-
         # print(self.p.ren_win.ReportCapabilities())
     
     def initDensityMesh(self, gt_pose, save_path):
@@ -76,15 +77,12 @@ class Util3D:
         self.p.camera.Zoom(1)
         self.p.camera_set = True
 
-        # generate same spline with 400 interpolation points
-        spline = pv.Spline(gt_pose[:, :3], gt_pose[:, :3].shape[0])
-        # plot without scalars
-        self.p.add_mesh(spline, line_width=8, color="k")
+        traj_plot = gt_pose[:, :3].copy()
+        (traj_plot, _, _) = trimesh.proximity.closest_point(trimesh.load(self.mesh_path), traj_plot)
+        spline = pv.Spline(traj_plot, 500)
+        self.p.add_mesh(spline, line_width=2, color="k")        # plot without scalars
 
         self.p.subplot(0, 1)
-        self.p.camera.Zoom(1)
-
-        self.p.subplot(1, 1)
         self.p.camera.Zoom(1)
 
         if not self.off_screen:
@@ -92,27 +90,33 @@ class Util3D:
         self.p.open_movie(save_path + ".mp4", framerate=self.framerate)
         print(f"Animating particle filter at {save_path}.mp4")
 
-    def updateHeatmap(self, samples, densities):
-
-        samplePoints = pv.PolyData(samples[:, :3])
-        if len(set(densities)) != 1:
-            densities = (densities - np.min(densities)) / (np.max(densities) - np.min(densities))        
-        # densities[densities < np.percentile(densities, 90)] = 0
-        samplePoints["similarity"] = densities
-        viridis = cm.get_cmap('viridis')
-        viridis.colors[0] =  [189/256, 189/256, 189/256] # grey
+    def updateHeatmap(self, samples, heat, heat_weights):
         self.p.subplot(0, 0)
-        dargs = dict(cmap="viridis", clim = [0, 1],  show_scalar_bar=False, opacity=0.5, reset_camera = False)
-        self.samplesActor = self.p.add_mesh(samplePoints, render_points_as_spheres=True, point_size=5, **dargs)
+        samplePoints = pv.PolyData(samples[:, :3])     
+        dargs = dict(color = 'red',  show_scalar_bar=False, opacity=0.3, reset_camera = False)
+        self.samplesActor = self.p.add_mesh(samplePoints, render_points_as_spheres=True, point_size=3, **dargs)
 
-        # self.p.remove_actor(self.meshActor)
-        # HeatmapMesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius = self.mesh.length/50)
-        # dargs = dict(cmap = viridis, clim=[0, 1], scalars='similarity', interpolate_before_map = False, ambient=0.6, opacity=0.8, smooth_shading=False, show_scalar_bar=False,  silhouette=True)
-        # self.meshActor = self.p.add_mesh(HeatmapMesh, **dargs)
+        self.p.subplot(1, 1)
+        self.p.remove_actor(self.heatActor)
+        heatCloud = pv.PolyData(heat[:, :3])
+        heat_weights = (heat_weights - np.min(heat_weights)) / (np.max(heat_weights) - np.min(heat_weights))        
+        heat_weights[heat_weights < np.percentile(heat_weights, 80)] = 0
+
+        heatCloud["similarity"] = heat_weights
+        HeatmapMesh = self.mesh.interpolate(heatCloud, strategy="null_value", radius = self.mesh.length/50)
+        # viridis.colors[0] =  [189/256, 189/256, 189/256] # grey
+        dargs = dict(cmap = cm.get_cmap('viridis'), scalars='similarity', interpolate_before_map = True, ambient = 0.2, opacity=0.9,  show_scalar_bar=False)
+        self.heatActor = self.p.add_mesh(HeatmapMesh, **dargs)
+
+        self.p.set_focus(self.mesh.center)
+        self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
+        self.p.camera.Zoom(1.0)
+        self.p.camera_set = True
+
         return
 
-    def updateDensityMesh(self, samples, gt_pose, densities, image, heightmap, mask, image_savepath = None):
-        samples = np.atleast_2d(samples)
+    def updateDensityMesh(self, particles, cluster_poses, cluster_stds, gt_pose, heat, heat_weights, image, heightmap, mask, image_savepath = None):
+        samples = np.atleast_2d(particles.poses)
 
         if self.samplesActor:
             self.p.remove_actor(self.samplesActor)
@@ -120,33 +124,67 @@ class Util3D:
             self.p.remove_actor(self.imageActor)
         if self.heightmapActor:
             self.p.remove_actor(self.heightmapActor)
-        if self.gelsightActor:
-            self.p.remove_actor(self.gelsightActor)
+        if self.gelsightActorA:
+            self.p.remove_actor(self.gelsightActorA)
+        if self.gelsightActorB:
+            self.p.remove_actor(self.gelsightActorB)
+        if self.heatActor:
+            self.p.remove_actor(self.samplesActor)
 
-        if self.quiverXActor:
-            self.p.remove_actor(self.quiverXActor)
-        if self.quiverYActor:
-            self.p.remove_actor(self.quiverYActor)
-        if self.quiverZActor:
-            self.p.remove_actor(self.quiverZActor)
+        if self.meanQuiverXActor:
+            self.p.remove_actor(self.meanQuiverXActor)
+        if self.meanQuiverYActor:
+            self.p.remove_actor(self.meanQuiverYActor)
+        if self.meanQuiverZActor:
+            self.p.remove_actor(self.meanQuiverZActor)
 
-        self.updateHeatmap(samples, densities)
+        if self.ellipsoidActor:
+            for e in self.ellipsoidActor: 
+                self.p.remove_actor(e)
 
-        # visualize gelsight 
-        # sensor_transform = gen_quat_t(gt_pose)
-        # transformed_gelsight_mesh = self.gelsight_mesh.transform(sensor_transform, inplace = False)
-        # dargs = dict(color = "black", ambient=0.6, opacity=0.3, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
-        # self.gelsightActor = self.p.add_mesh(transformed_gelsight_mesh, **dargs)
-        
         self.p.subplot(0, 0)
+           
+        # visualize gelsight 
+        transformed_gelsight_mesh = self.gelsight_mesh.transform(gen_quat_t(gt_pose), inplace = False)
+        dargs = dict(color = 'tan', ambient=0.0, opacity=0.5, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
+        self.gelsightActorA = self.p.add_mesh(transformed_gelsight_mesh, **dargs)
+
+        sigma_3 = 3. * np.mean(cluster_stds, axis = 1)
+        invalid = sigma_3 > self.mesh.length / 10
+        cluster_poses = np.delete(cluster_poses, invalid, axis = 0)
+        cluster_stds = np.delete(cluster_stds, invalid, axis = 0)
+
+        n_clusters = cluster_poses.shape[0]
+        if 0 < n_clusters < 10: 
+            self.ellipsoidActor = [None] * n_clusters
+            for i, (cluster_pose, cluster_std) in enumerate(zip(cluster_poses, 3 * cluster_stds)):
+                var_ellipsoid = pv.ParametricEllipsoid(cluster_std[0], cluster_std[1], cluster_std[2])
+                var_ellipsoid.translate(cluster_pose[:3])
+                dargs = dict(color = "red", ambient=0.0, opacity=0.2, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
+                self.ellipsoidActor[i] = self.p.add_mesh(var_ellipsoid, **dargs)
+    
+            cluster_quivers = pose2quiver(cluster_poses, self.mesh.length / 10)
+            cluster_quivers.set_active_vectors("xvectors")
+            self.meanQuiverXActor = self.p.add_mesh(cluster_quivers.arrows, color="red", show_scalar_bar=False, opacity=0.5)
+            cluster_quivers.set_active_vectors("yvectors")
+            self.meanQuiverYActor = self.p.add_mesh(cluster_quivers.arrows, color="green", show_scalar_bar=False, opacity=0.5)
+            cluster_quivers.set_active_vectors("zvectors")
+            self.meanQuiverZActor = self.p.add_mesh(cluster_quivers.arrows, color="blue", show_scalar_bar=False, opacity=0.5)
+            
+        self.updateHeatmap(samples, heat, heat_weights)
+
+        self.p.subplot(1, 1)
+        dargs = dict(color = 'tan', ambient=0.0, opacity=0.5, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
+        self.gelsightActorB = self.p.add_mesh(transformed_gelsight_mesh, **dargs)
+
         # ground truth pose 
-        gt_quiver = pose2quiver(gt_pose, 1e-2)
-        gt_quiver.set_active_vectors("xvectors")
-        self.quiverXActor = self.p.add_mesh(gt_quiver.arrows, color="red", show_scalar_bar=False)
-        gt_quiver.set_active_vectors("yvectors")
-        self.quiverYActor = self.p.add_mesh(gt_quiver.arrows, color="green", show_scalar_bar=False)
-        gt_quiver.set_active_vectors("zvectors")
-        self.quiverZActor = self.p.add_mesh(gt_quiver.arrows, color="blue", show_scalar_bar=False)
+        # gt_quiver = pose2quiver(gt_pose, 5e-2)
+        # gt_quiver.set_active_vectors("xvectors")
+        # self.quiverXActor = self.p.add_mesh(gt_quiver.arrows, color="red", show_scalar_bar=False)
+        # gt_quiver.set_active_vectors("yvectors")
+        # self.quiverYActor = self.p.add_mesh(gt_quiver.arrows, color="green", show_scalar_bar=False)
+        # gt_quiver.set_active_vectors("zvectors")
+        # self.quiverZActor = self.p.add_mesh(gt_quiver.arrows, color="blue", show_scalar_bar=False)
 
         # visualize gelsight image 
         s = 0.002
@@ -158,23 +196,14 @@ class Util3D:
 
         imagetex = pv.numpy_to_texture(-heightmap * mask.astype(np.float32))
         plane = pv.Plane(i_size = image.shape[1] * s, j_size = image.shape[0] * s, i_resolution = image.shape[1] - 1, j_resolution = image.shape[0] - 1)
-        plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * s - 0.2
+        plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * (0.5*s) - 0.2
         plasma = cm.get_cmap('plasma')
-        plasma.colors[0] =  [1, 1, 1] # black
         self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
 
         # mean pose 
-        # mean_pose, var_pose = self.getMeanAndVariance(samples, densities)
-        # mean_quiver = pose2quiver(mean_pose, 1e-2)
-        # mean_quiver.set_active_vectors("xvectors")
-        # meanQuiverXActor = self.p.add_mesh(mean_quiver.arrows, color="red", show_scalar_bar=False, opacity=0.2)
-        # mean_quiver.set_active_vectors("yvectors")
-        # meanQuiverYActor = self.p.add_mesh(mean_quiver.arrows, color="green", show_scalar_bar=False, opacity=0.2)
-        # mean_quiver.set_active_vectors("zvectors")
-        # meanQuiverZActor = self.p.add_mesh(mean_quiver.arrows, color="blue", show_scalar_bar=False, opacity=0.2)
+
 
         # variance pose 
-        # ellipsoid = pv.ParametricEllipsoid(10, 5, 5)
 
         if image_savepath:
             self.p.screenshot(image_savepath)  
@@ -211,7 +240,7 @@ class Util3D:
         samplePoints = pv.PolyData(samples[:, :3])
         samplePoints["similarity"] = clusters
         
-        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/100.0)
+        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/80.0)
         p = pv.Plotter(off_screen=self.off_screen, window_size=[1000, 1000])
 
         # replace black with gray 
