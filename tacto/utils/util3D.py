@@ -20,7 +20,8 @@ from .utils import gen_quat_t
 from tqdm import tqdm 
 from pyvistaqt import BackgroundPlotter
 import trimesh 
-
+import copy 
+import open3d as o3d
 
 pv.set_plot_theme("document")
 # pv.global_theme.axes.show = True
@@ -32,8 +33,12 @@ class Util3D:
             pv.start_xvfb()  
 
         self.mesh_path = mesh_path
-        self.mesh = pv.read(self.mesh_path)
-        self.framerate = 10
+        self.mesh = trimesh.load(mesh_path)
+        self.mesh = self.mesh.simplify_quadratic_decimation(face_count = int(self.mesh.vertices.shape[0]/10)) #pv.read(self.mesh_path)
+        self.mesh = pv.wrap(self.mesh)
+
+        self.framerate = 10        
+
         # load and rotate gelsight mesh 
         if virtual_buff:
             self.gelsight_mesh = pv.read("/home/rpluser/Documents/suddhu/projects/shape-closures/models/digit/digit.STL")
@@ -45,7 +50,7 @@ class Util3D:
 
         # self.gelsight_mesh = self.gelsight_mesh.transform(T, inplace = False)
         self.samplesActor, self.gelsightActorA, self.gelsightActorB, self.heightmapActor, self.imageActor, self.heatActor = None, None, None, None, None, None
-        self.meanQuiverXActor, self.meanQuiverYActor, self.meanQuiverZActor, self.ellipsoidActor = None, None, None, None
+        self.meanQuiverXActor, self.meanQuiverYActor, self.meanQuiverZActor, self.ellipsoidActor, self.frame_text = None, None, None, None, None
 
         self.off_screen = off_screen
         pv.global_theme.multi_rendering_splitting_position = 0.7
@@ -62,9 +67,9 @@ class Util3D:
         ]
         if not off_screen:
             # self.p = BackgroundPlotter(shape='1|2', border_color = "white", border_width = 0, off_screen=self.off_screen, window_size=(1920, 1088))
-            self.p = BackgroundPlotter(shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
+            self.p = BackgroundPlotter(shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white", border_width = 4)
         else:
-            self.p = pv.Plotter(shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
+            self.p = pv.Plotter(shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1920, 1088), border_color = "white", border_width = 4)
         # print(self.p.ren_win.ReportCapabilities())
     
     def initDensityMesh(self, gt_pose, save_path):
@@ -80,7 +85,7 @@ class Util3D:
         traj_plot = gt_pose[:, :3].copy()
         (traj_plot, _, _) = trimesh.proximity.closest_point(trimesh.load(self.mesh_path), traj_plot)
         spline = pv.Spline(traj_plot, 500)
-        self.p.add_mesh(spline, line_width=2, color="k")        # plot without scalars
+        self.p.add_mesh(spline, line_width=3, color="k")        # plot without scalars
 
         self.p.subplot(0, 1)
         self.p.camera.Zoom(1)
@@ -94,7 +99,7 @@ class Util3D:
         self.p.subplot(0, 0)
         samplePoints = pv.PolyData(samples[:, :3])     
         dargs = dict(color = 'red',  show_scalar_bar=False, opacity=0.3, reset_camera = False)
-        self.samplesActor = self.p.add_mesh(samplePoints, render_points_as_spheres=True, point_size=3, **dargs)
+        self.samplesActor = self.p.add_mesh(samplePoints, render_points_as_spheres=True, point_size=5, **dargs)
 
         self.p.subplot(1, 1)
         self.p.remove_actor(self.heatActor)
@@ -115,7 +120,9 @@ class Util3D:
 
         return
 
-    def updateDensityMesh(self, particles, cluster_poses, cluster_stds, gt_pose, heat, heat_weights, image, heightmap, mask, image_savepath = None):
+    def updateDensityMesh(self, _particles, cluster_poses, cluster_stds, gt_pose, heat, heat_weights, image, heightmap, mask, count, image_savepath = None):
+        particles = copy.copy(_particles)
+
         samples = np.atleast_2d(particles.poses)
 
         if self.samplesActor:
@@ -137,6 +144,9 @@ class Util3D:
             self.p.remove_actor(self.meanQuiverYActor)
         if self.meanQuiverZActor:
             self.p.remove_actor(self.meanQuiverZActor)
+
+        if self.frame_text:
+            self.p.remove_actor(self.frame_text)
 
         if self.ellipsoidActor:
             for e in self.ellipsoidActor: 
@@ -200,29 +210,36 @@ class Util3D:
         plasma = cm.get_cmap('plasma')
         self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
 
-        # mean pose 
-
-
-        # variance pose 
-
+        self.frame_text = self.p.add_text(f'Frame {count}', position='upper_right', color='black', shadow=True, font = 'times', font_size=20)
+                            
         if image_savepath:
             self.p.screenshot(image_savepath)  
 
         self.p.write_frame()  # write
 
-        # self.p.remove_actor(meanQuiverXActor)
-        # self.p.remove_actor(meanQuiverYActor)
-        # self.p.remove_actor(meanQuiverZActor)
+    def drawGraph(self, x, y, savepath, flag = 't'):
 
-    def drawGraph(self, x, y, savepath):
-        y = [y_ * 1000.0 for y_ in y]
-        N, maxy = len(x), max(y)
         fig, ax = plt.subplots()
-        line, = ax.plot(x, y, color='k')
 
         plt.xlabel('Timestep', fontsize=12)
-        plt.ylabel('Weighted particle RMSE (mm)', fontsize=12)
+        if flag == 't':
+            plt.ylabel('Avg. translation RMSE (mm)', fontsize=12)
+            y = [y_ * 1000.0 for y_ in y]
+        elif flag == 'r':
+            plt.ylabel('Avg. rotation RMSE (deg)', fontsize=12)
+
+        # rolling avg.
+        import pandas as pd
+        df = pd.DataFrame()
+        N = 10
+        df['y'] = y.tolist()
+        df_smooth = df.rolling(N).mean()
+        df_smooth['y'][0:N - 1] = y[0:N-1] # interpolate first N elements
+        y = df_smooth['y']
         
+        N, maxy = len(x), max(y)
+        line, = ax.plot(x, y, color='k')
+
         def update(num, x, y, line):
             line.set_data(x[:num], y[:num])
             line.axes.axis([0, N, 0, maxy])
