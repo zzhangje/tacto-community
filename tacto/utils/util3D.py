@@ -33,9 +33,10 @@ class Util3D:
             pv.start_xvfb()  
 
         self.mesh_path = mesh_path
-        self.mesh = trimesh.load(mesh_path)
-        self.mesh = self.mesh.simplify_quadratic_decimation(face_count = int(self.mesh.vertices.shape[0]/10)) #pv.read(self.mesh_path)
-        self.mesh = pv.wrap(self.mesh)
+        mesh = trimesh.load(mesh_path)
+        mesh = mesh.simplify_quadratic_decimation(face_count = int(mesh.vertices.shape[0]/10)) #pv.read(self.mesh_path)
+        self.deci_mesh = pv.wrap(mesh)
+        self.mesh = pv.read(mesh_path)
 
         self.framerate = 10        
 
@@ -67,15 +68,15 @@ class Util3D:
         ]
         if not off_screen:
             # self.p = BackgroundPlotter(shape='1|2', border_color = "white", border_width = 0, off_screen=self.off_screen, window_size=(1920, 1088))
-            self.p = BackgroundPlotter(shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white", border_width = 4)
+            self.p = BackgroundPlotter(lighting='three lights', shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
         else:
-            self.p = pv.Plotter(shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1920, 1088), border_color = "white", border_width = 4)
+            self.p = pv.Plotter(lighting='three lights', shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1760, 1200), border_color = "white")
         # print(self.p.ren_win.ReportCapabilities())
     
     def initDensityMesh(self, gt_pose, save_path):
         self.p.subplot(0, 0)
         gt_pose = np.atleast_2d(gt_pose)
-        dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False)
+        dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False, silhouette=True)
         self.p.add_mesh(self.mesh, **dargs)
         # self.p.set_focus(self.mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
@@ -108,14 +109,14 @@ class Util3D:
         heat_weights[heat_weights < np.percentile(heat_weights, 80)] = 0
 
         heatCloud["similarity"] = heat_weights
-        HeatmapMesh = self.mesh.interpolate(heatCloud, strategy="null_value", radius = self.mesh.length/50)
+        HeatmapMesh = self.deci_mesh.interpolate(heatCloud, strategy="null_value", radius = self.mesh.length/50)
         # viridis.colors[0] =  [189/256, 189/256, 189/256] # grey
-        dargs = dict(cmap = cm.get_cmap('viridis'), scalars='similarity', interpolate_before_map = True, ambient = 0.2, opacity=0.9,  show_scalar_bar=False)
+        dargs = dict(cmap = cm.get_cmap('viridis'), scalars='similarity', interpolate_before_map = True, ambient = 0.2, opacity=0.9,  show_scalar_bar=False, silhouette=True)
         self.heatActor = self.p.add_mesh(HeatmapMesh, **dargs)
 
-        self.p.set_focus(self.mesh.center)
+        self.p.set_focus(self.deci_mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
-        self.p.camera.Zoom(1.0)
+        self.p.camera.Zoom(0.9)
         self.p.camera_set = True
 
         return
@@ -169,7 +170,7 @@ class Util3D:
             self.ellipsoidActor = [None] * n_clusters
             for i, (cluster_pose, cluster_std) in enumerate(zip(cluster_poses, 3 * cluster_stds)):
                 var_ellipsoid = pv.ParametricEllipsoid(cluster_std[0], cluster_std[1], cluster_std[2])
-                var_ellipsoid.translate(cluster_pose[:3])
+                var_ellipsoid.translate(cluster_pose[:3], inplace=True)
                 dargs = dict(color = "red", ambient=0.0, opacity=0.2, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
                 self.ellipsoidActor[i] = self.p.add_mesh(var_ellipsoid, **dargs)
     
@@ -210,14 +211,14 @@ class Util3D:
         plasma = cm.get_cmap('plasma')
         self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
 
-        self.frame_text = self.p.add_text(f'Frame {count}', position='upper_right', color='black', shadow=True, font = 'times', font_size=20)
+        self.frame_text = self.p.add_text(f'\nFrame {count}   ', position='upper_right', color='black', shadow=True, font = 'times', font_size=12)
                             
         if image_savepath:
             self.p.screenshot(image_savepath)  
 
         self.p.write_frame()  # write
 
-    def drawGraph(self, x, y, savepath, flag = 't'):
+    def drawGraph(self, x, y, savepath, delay, flag = 't'):
 
         fig, ax = plt.subplots()
 
@@ -228,13 +229,13 @@ class Util3D:
         elif flag == 'r':
             plt.ylabel('Avg. rotation RMSE (deg)', fontsize=12)
 
-        # rolling avg.
+        # rolling avg. over 10 timesteps
         import pandas as pd
         df = pd.DataFrame()
-        N = 10
-        df['y'] = y.tolist()
+        N = 50
+        df['y'] = y
         df_smooth = df.rolling(N).mean()
-        df_smooth['y'][0:N - 1] = y[0:N-1] # interpolate first N elements
+        df_smooth['y'][0:N - 1] = y[0:N-1] # first 10 readings are as-is
         y = df_smooth['y']
         
         N, maxy = len(x), max(y)
@@ -245,7 +246,7 @@ class Util3D:
             line.axes.axis([0, N, 0, maxy])
             return line,
 
-        ani = animation.FuncAnimation(fig, update, len(x), fargs=[x, y, line], interval = self.framerate, blit=True)
+        ani = animation.FuncAnimation(fig, update, len(x), fargs=[x, y, line], interval = delay, blit=True)
         ani.save(savepath, writer='ffmpeg', codec='h264')
 
     def closeDensityMesh(self):
