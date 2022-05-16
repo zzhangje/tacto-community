@@ -73,6 +73,16 @@ class Util3D:
             self.p = pv.Plotter(lighting='three lights', shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1760, 1200), border_color = "white")
         # print(self.p.ren_win.ReportCapabilities())
     
+    def screenshotModel(self, savepath):
+        p = pv.Plotter(off_screen=self.off_screen, window_size=(1200, 1200))
+        dargs = dict(smooth_shading=True, specular=1.0, show_scalar_bar=False, silhouette=True)
+        p.add_mesh(self.mesh, **dargs)
+        p.set_focus(self.mesh.center)
+        p.camera_position, p.camera.azimuth, p.camera.elevation = 'yz', 45, 20
+        p.camera.Zoom(1)
+        p.screenshot(savepath, transparent_background = True)  
+        p.close()
+
     def initDensityMesh(self, gt_pose, save_path):
         self.p.subplot(0, 0)
         gt_pose = np.atleast_2d(gt_pose)
@@ -211,7 +221,7 @@ class Util3D:
         plasma = cm.get_cmap('plasma')
         self.heightmapActor = self.p.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
 
-        self.frame_text = self.p.add_text(f'\nFrame {count}   ', position='upper_right', color='black', shadow=True, font = 'times', font_size=12)
+        self.frame_text = self.p.add_text(f'\nFrame {count}   ', position='upper_right', color='black', shadow=True, font = 'times', font_size=15)
                             
         if image_savepath:
             self.p.screenshot(image_savepath)  
@@ -253,12 +263,12 @@ class Util3D:
         self.p.close()
         pv.close_all()
 
-    def saveTSNEMesh(self, samples, clusters, save_path, nPoints = 500):
+    def saveTSNEMesh(self, samples, clusters, save_path, nPoints = 500, radius_factor = 80.0):
         samples = np.atleast_2d(samples)
         samplePoints = pv.PolyData(samples[:, :3])
         samplePoints["similarity"] = clusters
         
-        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/80.0)
+        mesh = self.mesh.interpolate(samplePoints, strategy="mask_points", radius=self.mesh.length/radius_factor)
         p = pv.Plotter(off_screen=self.off_screen, window_size=[1000, 1000])
 
         # replace black with gray 
