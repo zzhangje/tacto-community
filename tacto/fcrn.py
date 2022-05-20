@@ -22,9 +22,9 @@ class fcrn:
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
 
         if real: 
-            self.b, self.r = 20, 0.8 
+            self.b, self.r, self.clip = 40, 0.9, 10
         else:
-            self.b, self.r = 1, 0.2        
+            self.b, self.r, self.clip = 1, 0.2, 5        
         # print("setting parameters...")
         self.batch_size = 1
         self.params = {'batch_size': self.batch_size, 'shuffle': False}
@@ -63,6 +63,7 @@ class fcrn:
         # test_data: tactile img 640 * 480
         # result: height map 640 * 480
         # test_data = cv2.cvtColor(test_data, cv2.COLOR_RGB2BGR) 
+        test_data = cv2.normalize(test_data, None, alpha=0,beta=200, norm_type=cv2.NORM_MINMAX)
         test_set = TestDataLoader(test_data)
         test_loader = torch.utils.data.DataLoader(test_set, **self.params)
         with torch.no_grad():
@@ -77,7 +78,7 @@ class fcrn:
         heightmap = heightmap[self.b:-self.b,self.b:-self.b]
         init_height = self.bg[self.b:-self.b,self.b:-self.b]
         diff_heights = heightmap - init_height
-        diff_heights[diff_heights<5]=0
+        diff_heights[diff_heights<self.clip]=0
         contact_mask = diff_heights > np.percentile(diff_heights, 90) * self.r
         padded_contact_mask = np.zeros(self.bg.shape, dtype=bool)
         padded_contact_mask[self.b:-self.b,self.b:-self.b] = contact_mask

@@ -20,7 +20,7 @@ pixmm = 0.03 # 0.0295; # 0.0302
 class TactoRender:
     def __init__(self, obj_path = None, randomize : bool = False, headless = False):
         # Create renderer
-        self.renderer = tacto.Renderer(width=240, height=320, background= cv2.imread(tacto.get_background_image_path()), config_path=tacto.get_digit_shadow_config_path(), headless = headless)
+        self.renderer = tacto.Renderer(width=240, height=320, background= cv2.imread(tacto.get_background_image_path(0)), config_path=tacto.get_digit_shadow_config_path(), headless = headless)
 
         self.cam_dist = 0.022
 

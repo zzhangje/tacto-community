@@ -35,8 +35,11 @@ def get_digit_shadow_config_path():
 def get_omnitact_config_path():
     return _get_default_config("config_omnitact.yml")
 
-def get_background_image_path():
-    return _get_default_config("bg.jpg")
+def get_background_image_path(flag = 0):
+    if flag == 0: 
+        return _get_default_config("bg.jpg")
+    elif flag == 1:
+        return _get_default_config("bg2.jpg")
 
 @dataclass
 class Link:

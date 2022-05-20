@@ -73,6 +73,9 @@ class Util3D:
             self.p = pv.Plotter(lighting='three lights', shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1760, 1200), border_color = "white")
         # print(self.p.ren_win.ReportCapabilities())
     
+    def exit(self):
+        self.p.close()
+    
     def screenshotModel(self, savepath):
         p = pv.Plotter(off_screen=self.off_screen, window_size=(1200, 1200))
         dargs = dict(smooth_shading=True, specular=1.0, show_scalar_bar=False, silhouette=True)
@@ -86,7 +89,7 @@ class Util3D:
     def initDensityMesh(self, gt_pose, save_path):
         self.p.subplot(0, 0)
         gt_pose = np.atleast_2d(gt_pose)
-        dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False, silhouette=True)
+        dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False)
         self.p.add_mesh(self.mesh, **dargs)
         # self.p.set_focus(self.mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
@@ -533,7 +536,10 @@ class Util3D:
         for i, pointcloud in enumerate(pointclouds):
             if pointcloud.shape[0] == 0:
                 continue
-            downpcd =  pointcloud[np.random.choice(pointcloud.shape[0], pointcloud.shape[0]//decimation_factor, replace=False), :]
+            if decimation_factor is not None: 
+                downpcd =  pointcloud[np.random.choice(pointcloud.shape[0], pointcloud.shape[0]//decimation_factor, replace=False), :]
+            else:
+                downpcd = pointcloud
             final_pc = np.append(final_pc, downpcd)
         
         if final_pc.shape[0]:
@@ -542,11 +548,10 @@ class Util3D:
     
         if save_path:
             p.show(screenshot=save_path)
-            print(f"Save path: {save_path}")
+            print(f"Save path: {save_path}.png")
         else:
             p.show(auto_close= not self.off_screen)
         p.close()
-        
         pv.close_all()
 
     def vizAnnotations(self, annotations, save_path = None):
