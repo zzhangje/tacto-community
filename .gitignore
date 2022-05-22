@@ -5,6 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
+*.pth.tar
+*.pth
 
 # Distribution / packaging
 .Python
