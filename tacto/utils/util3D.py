@@ -68,7 +68,7 @@ class Util3D:
         ]
         if not off_screen:
             # self.p = BackgroundPlotter(shape='1|2', border_color = "white", border_width = 0, off_screen=self.off_screen, window_size=(1920, 1088))
-            self.p = BackgroundPlotter(lighting='three lights', shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, border_color = "white")
+            self.p = BackgroundPlotter(lighting='three lights', shape=shape, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1760, 1200), border_color = "white")
         else:
             self.p = pv.Plotter(lighting='three lights', shape=shape, off_screen=self.off_screen, row_weights=row_weights, col_weights=col_weights, groups=groups, window_size=(1760, 1200), border_color = "white")
         # print(self.p.ren_win.ReportCapabilities())

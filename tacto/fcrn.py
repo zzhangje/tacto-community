@@ -22,7 +22,7 @@ class fcrn:
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
 
         if real: 
-            self.b, self.r, self.clip = 40, 0.9, 10
+            self.b, self.r, self.clip = 10, 0.8, 5
         else:
             self.b, self.r, self.clip = 1, 0.2, 5        
         # print("setting parameters...")
