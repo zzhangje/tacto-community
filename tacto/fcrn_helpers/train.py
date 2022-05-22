@@ -1,18 +1,18 @@
 import torch
 import torch.utils.data
-from fcrn.loader import GelDataLoader, RealDataLoader
+from loader import GelDataLoader, RealDataLoader
 import numpy as np
 import os
 from os import path as osp
-from fcrn.fcrn import FCRN_net
+from fcrn import FCRN_net
 from torch.autograd import Variable
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plot
 from torch.utils.tensorboard import SummaryWriter
-from fcrn.weights import load_weights
+from weights import load_weights
 from tqdm import tqdm 
-from fcrn.train_config import train_config
+from train_config import train_config
 import cv2
 from tacto.TactoRender import TactoRender
 

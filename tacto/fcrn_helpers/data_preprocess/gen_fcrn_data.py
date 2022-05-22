@@ -8,9 +8,6 @@ abspath = osp.abspath(__file__)
 dname = osp.dirname(abspath)
 os.chdir(dname)
 
-data_root_path = osp.join("/mnt/sda/suddhu/fcrn/fcrn_data")
-object_folders = sorted(os.listdir(data_root_path))
-
 # write training/validation/testing data loader files
 save_path = osp.join('..', 'data_files')
 train_data_file = open(osp.join(save_path,'train_data.txt'),'w')
@@ -26,43 +23,48 @@ global_train_idx = 0
 global_dev_idx = 0
 global_test_idx = 0
 
-for object in object_folders:
-    if object == ".DS_Store":
-        continue
-    _, ext = os.path.splitext(object)
-    if ext == ".pickle":
-        continue
-    print("Object: ", object)
+# two different tactile background models 
+data_root_paths = ["/mnt/sda/suddhu/fcrn/fcrn_data2", "/mnt/sda/suddhu/fcrn/fcrn_data"] 
 
-    # load in tactile images and ground truth height maps
-    tactile_path = osp.join(data_root_path, object, 'tactile_images')
-    gt_heightmap_path = osp.join(data_root_path, object, 'gt_heightmaps')
-    gt_contactmask_path = osp.join(data_root_path, object, 'gt_contactmasks')
+for data_root_path in data_root_paths:
+    object_folders = sorted(os.listdir(data_root_path))
+    for object in object_folders:
+        if object == ".DS_Store":
+            continue
+        _, ext = os.path.splitext(object)
+        if ext == ".pickle":
+            continue
+        print("Object: ", object)
 
-    num_imgs = len(os.listdir(tactile_path))
-    all_random_idx = np.random.permutation(num_imgs)
-    num_train = int(0.8 * num_imgs)
-    num_dev = int(0.1 * num_imgs)
-    num_test = int(0.1 * num_imgs)
+        # load in tactile images and ground truth height maps
+        tactile_path = osp.join(data_root_path, object, 'tactile_images')
+        gt_heightmap_path = osp.join(data_root_path, object, 'gt_heightmaps')
+        gt_contactmask_path = osp.join(data_root_path, object, 'gt_contactmasks')
 
-    train_idx = all_random_idx[0:num_train]
-    dev_idx = all_random_idx[num_train:num_train+num_dev]
-    test_idx = all_random_idx[num_train+num_dev:num_train+num_dev+num_test]
+        num_imgs = len(os.listdir(tactile_path))
+        all_random_idx = np.random.permutation(num_imgs)
+        num_train = int(0.8 * num_imgs)
+        num_dev = int(0.1 * num_imgs)
+        num_test = int(0.1 * num_imgs)
 
-    for idx in train_idx:
-        train_data_file.write(str(global_train_idx)+ "," + tactile_path+ "/" +str(idx)+".jpg"+ "\n")
-        train_label_file.write(str(global_train_idx)+ "," + gt_heightmap_path+ "/" +str(idx)+".jpg"+ "," + gt_contactmask_path+ "/" +str(idx)+".jpg" + "\n")
-        global_train_idx += 1
+        train_idx = all_random_idx[0:num_train]
+        dev_idx = all_random_idx[num_train:num_train+num_dev]
+        test_idx = all_random_idx[num_train+num_dev:num_train+num_dev+num_test]
 
-    for idx in dev_idx:
-        dev_data_file.write(str(global_dev_idx)+ "," + tactile_path + "/" +str(idx)+".jpg"+ "\n")
-        dev_label_file.write(str(global_dev_idx)+ "," + gt_heightmap_path+ "/" +str(idx)+".jpg"+ "," + gt_contactmask_path+ "/" +str(idx)+".jpg"+  "\n")
-        global_dev_idx += 1
+        for idx in train_idx:
+            train_data_file.write(str(global_train_idx)+ "," + tactile_path+ "/" +str(idx)+".jpg"+ "\n")
+            train_label_file.write(str(global_train_idx)+ "," + gt_heightmap_path+ "/" +str(idx)+".jpg"+ "," + gt_contactmask_path+ "/" +str(idx)+".jpg" + "\n")
+            global_train_idx += 1
 
-    for idx in test_idx:
-        test_data_file.write(str(global_test_idx)+ "," + tactile_path+ "/" +str(idx)+".jpg"+ "\n")
-        test_label_file.write(str(global_test_idx)+ "," + gt_heightmap_path+ "/" +str(idx)+".jpg"+ "," + gt_contactmask_path+ "/" +str(idx)+".jpg"+ "\n")
-        global_test_idx += 1
+        for idx in dev_idx:
+            dev_data_file.write(str(global_dev_idx)+ "," + tactile_path + "/" +str(idx)+".jpg"+ "\n")
+            dev_label_file.write(str(global_dev_idx)+ "," + gt_heightmap_path+ "/" +str(idx)+".jpg"+ "," + gt_contactmask_path+ "/" +str(idx)+".jpg"+  "\n")
+            global_dev_idx += 1
+
+        for idx in test_idx:
+            test_data_file.write(str(global_test_idx)+ "," + tactile_path+ "/" +str(idx)+".jpg"+ "\n")
+            test_label_file.write(str(global_test_idx)+ "," + gt_heightmap_path+ "/" +str(idx)+".jpg"+ "," + gt_contactmask_path+ "/" +str(idx)+".jpg"+ "\n")
+            global_test_idx += 1
 
 print("Train size: {}, Val size: {}, test size: {}".format(global_train_idx, global_dev_idx, global_test_idx))
 train_data_file.close()
