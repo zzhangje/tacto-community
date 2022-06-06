@@ -36,10 +36,10 @@ def get_omnitact_config_path():
     return _get_default_config("config_omnitact.yml")
 
 def get_background_image_path(flag = 0):
-    if flag == 0: 
-        return _get_default_config("bg.jpg")
-    elif flag == 1:
-        return _get_default_config("bg2.jpg")
+    if flag is None: 
+        return _get_default_config("bgs/bg.jpg")
+    else: 
+        return _get_default_config(f"bgs/bg_{flag}.jpg")
 
 @dataclass
 class Link:
