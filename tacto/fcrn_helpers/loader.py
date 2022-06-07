@@ -6,7 +6,7 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 import sys
 sys.path.append("..")
-import flow_transforms as flow_transforms
+from . import flow_transforms as flow_transforms
 import cv2
 
 class GelDataLoader(data.Dataset):
