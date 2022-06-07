@@ -24,7 +24,7 @@ global_dev_idx = 0
 global_test_idx = 0
 
 # two different tactile background models 
-data_root_paths = ["/mnt/sda/suddhu/fcrn/fcrn_data2", "/mnt/sda/suddhu/fcrn/fcrn_data"] 
+data_root_paths = ["/mnt/sda/suddhu/fcrn/fcrn_data"] 
 
 for data_root_path in data_root_paths:
     object_folders = sorted(os.listdir(data_root_path))

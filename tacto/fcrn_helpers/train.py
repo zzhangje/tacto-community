@@ -14,7 +14,7 @@ from weights import load_weights
 from tqdm import tqdm 
 from train_config import train_config
 import cv2
-from tacto.TactoRender import TactoRender
+from tacto.TactoRender import TactoRender, pixmm
 
 tacRender = TactoRender(obj_path = None, randomize = False, headless = True)
 depth_bg = tacRender.correct_pyrender_height_map(tacRender.bg_depth)
@@ -29,6 +29,7 @@ def main():
     batch_size, learning_rate, num_epochs = train_config['batch_size'], train_config['lr'], train_config['max_epochs']
     # monentum, weight_decay = 0.9, 0.0005
 
+    print(f"Batch size: {batch_size}, Learning rate: {learning_rate}")
     resume_from_file = train_config['resume_from_file']
     checkpoint_path = './weights/checkpoint_heightmap_digit.pth.tar'
 
@@ -37,21 +38,24 @@ def main():
 
     # 1.Load data
     data_file_path = osp.join("data_files")
-    
     train_data_file = osp.join(data_file_path,'train_data.txt')
     dev_data_file = osp.join(data_file_path,'dev_data.txt')
     train_label_file = osp.join(data_file_path,'train_label.txt')
     dev_label_file = osp.join(data_file_path,'dev_label.txt')
+    test_data_file = osp.join(data_file_path,'test_data.txt')
+    test_label_file = osp.join(data_file_path,'test_label.txt')
 
     print(f"Loading data, Resume training: {resume_from_file}")
     train_loader = torch.utils.data.DataLoader(GelDataLoader(train_data_file, train_label_file),
                                                batch_size=batch_size, shuffle=True, drop_last=True)
     val_loader = torch.utils.data.DataLoader(GelDataLoader(dev_data_file, dev_label_file),
-                                               batch_size=batch_size, shuffle=True, drop_last=True)
+                                               batch_size=batch_size, shuffle=False, drop_last=True)
 
-    test_real_file = osp.join(data_file_path,'test_data_real.txt')
-    test_loader = torch.utils.data.DataLoader(RealDataLoader(test_real_file), batch_size=batch_size, shuffle=False, drop_last=True)
+    # test_real_file = osp.join(data_file_path,'test_data_real.txt')
+    # test_loader = torch.utils.data.DataLoader(RealDataLoader(test_real_file), batch_size=batch_size, shuffle=False, drop_last=True)
 
+    test_loader = torch.utils.data.DataLoader(GelDataLoader(test_data_file, test_label_file),
+                                               batch_size=batch_size, shuffle=False, drop_last=True)
     # 2.Load model
     print("Loading model...")
     model = FCRN_net(batch_size)
@@ -94,27 +98,6 @@ def main():
         print("=> loading pre-trained NYU weights'{}'".format(weights_file))
         model.load_state_dict(load_weights(model, weights_file, dtype))
 
-    # test on real dataset 
-    print('Testing on real data')
-    model.eval()
-    with torch.no_grad():
-        count = 0
-        for input in test_loader:
-            input_var = Variable(input.type(dtype))
-            output = model(input_var)
-
-            for i in range(len(output)):
-                input_rgb_image = input_var[i].data.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
-                pred_image = output[i].data.squeeze().cpu().numpy().astype(np.float32)
-
-                contact_mask = heightmap2mask(pred_image, depth_bg)
-                pred_image /= np.max(pred_image)
-                plot.imsave(osp.join(test_results_path, "{}_pred_heightmap.png".format(count)), pred_image, cmap="viridis")
-                plot.imsave(osp.join(test_results_path, "{}_pred_mask.png".format(count)), contact_mask)
-
-                plot.imsave(osp.join(test_results_path, "{}_input.png".format(count)), input_rgb_image)
-                count += 1
-        
     # validate
     print('Validating on sim data')
     model.eval()
@@ -126,18 +109,6 @@ def main():
             gt_var = Variable(depth.type(dtype))
 
             output = model(input_var)
-
-            if num_samples == 0:
-                input_rgb_image = input_var[0].data.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
-                gt_image = gt_var[0].data.squeeze().cpu().numpy().astype(np.float32)
-                pred_image = output[0].data.squeeze().cpu().numpy().astype(np.float32)
-                gt_image /= np.max(gt_image)
-                pred_image /= np.max(pred_image)
-
-                plot.imsave(osp.join(input_path, "input_epoch_{}.png".format(start_epoch)), input_rgb_image)
-                plot.imsave(osp.join(gt_path, "gt_epoch_{}.png".format(start_epoch)), gt_image, cmap="viridis")
-                plot.imsave(osp.join(pred_path, "pred_epoch_{}.png".format(start_epoch)), pred_image, cmap="viridis")
-
             loss_local += loss_fn(output, gt_var)
             num_samples += 1
             pbar.update(1)
@@ -168,15 +139,13 @@ def main():
             # print('loss:', loss.item())
             # input_img = input_var.squeeze().permute(1, 2, 0).detach().cpu().numpy()
             # output_img = output.squeeze().detach().cpu().numpy()
-
             running_loss += loss.data.cpu().numpy()
             count += 1
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             pbar.update(1)
-            pbar.set_description("RMSE pixel loss: {:.2f}".format( np.sqrt( loss.item() ) ))
-
+            pbar.set_description("RMSE pixel loss: {:.2f}".format( np.sqrt( running_loss / count ) ))
         pbar.close()
 
         # TODO: tensorboard
@@ -196,19 +165,6 @@ def main():
                 gt_var = Variable(depth.type(dtype))
 
                 output = model(input_var)
-
-                if num_samples == 0:
-                    input_rgb_image = input_var[0].data.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
-                    gt_image = gt_var[0].data.squeeze().cpu().numpy().astype(np.float32)
-                    pred_image = output[0].data.squeeze().cpu().numpy().astype(np.float32)
-
-                    gt_image /= np.max(gt_image)
-                    pred_image /= np.max(pred_image)
-
-                    plot.imsave(osp.join(input_path, "input_epoch_{}.png".format(start_epoch + epoch + 1)), input_rgb_image)
-                    plot.imsave(osp.join(gt_path, "gt_epoch_{}.png".format(start_epoch + epoch + 1)), gt_image, cmap="viridis")
-                    plot.imsave(osp.join(pred_path, "pred_epoch_{}.png".format(start_epoch + epoch + 1)), pred_image, cmap="viridis")
-
                 loss_local += loss_fn(output, gt_var)
                 num_samples += 1
                 pbar.update(1)
@@ -234,37 +190,37 @@ def main():
             learning_rate = learning_rate * 0.6
             print("10 epochs, dropping learning rate to {}".format(learning_rate))
 
-            # test on real dataset 
-        print('Testing on real data')
+        print('Testing on sim data')
         model.eval()
+        num_samples, loss_local = 0, 0
+        # make local IoU
         with torch.no_grad():
-            count = 0
-            for input in test_loader:
+            pbar = tqdm(total = len(test_loader))
+            for input, depth in test_loader:
                 input_var = Variable(input.type(dtype))
+                gt_var = Variable(depth.type(dtype))
+
                 output = model(input_var)
 
-                for i in range(len(output)):
-                    input_rgb_image = input_var[i].data.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
-                    pred_image = output[i].data.squeeze().cpu().numpy().astype(np.float32)
-
-                    contact_mask = heightmap2mask(pred_image, depth_bg)
+                if num_samples == 0:
+                    input_rgb_image = input_var[0].data.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+                    gt_image = gt_var[0].data.squeeze().cpu().numpy().astype(np.float32)
+                    pred_image = output[0].data.squeeze().cpu().numpy().astype(np.float32)
+                    gt_image /= np.max(gt_image)
                     pred_image /= np.max(pred_image)
-                    plot.imsave(osp.join(test_results_path, "{}_pred_heightmap.png".format(count)), pred_image, cmap="viridis")
-                    plot.imsave(osp.join(test_results_path, "{}_pred_mask.png".format(count)), contact_mask)
-                    plot.imsave(osp.join(test_results_path, "{}_input.png".format(count)), input_rgb_image)
-                    count += 1
+
+                    plot.imsave(osp.join(input_path, "input_epoch_{}.png".format(start_epoch + epoch + 1)), input_rgb_image)
+                    plot.imsave(osp.join(gt_path, "gt_epoch_{}.png".format(start_epoch + epoch + 1)), gt_image, cmap="viridis")
+                    plot.imsave(osp.join(pred_path, "pred_epoch_{}.png".format(start_epoch + epoch + 1)), pred_image, cmap="viridis")
+                loss_local += loss_fn(output, gt_var)
+                num_samples += 1
+                pbar.update(1)
+            pbar.close()
+        err = np.sqrt( float(loss_local) / num_samples ) * pixmm
+        print(f'Test error: {err:.3f} mm RMSE')
+        writer.add_scalar("test_loss", err, start_epoch + epoch + 1)
     writer.flush()
     writer.close()
 
-def heightmap2mask(heightmap, bg):
-    heightmap = heightmap[20:-20,20:-20]
-    init_height = bg[20:-20,20:-20]
-    diff_heights = heightmap - init_height
-    diff_heights[diff_heights<5]=0
-    contact_mask = diff_heights > np.percentile(diff_heights, 90)*0.8 #*0.8
-    padded_contact_mask = np.zeros(bg.shape, dtype=bool)
-    padded_contact_mask[20:-20,20:-20] = contact_mask
-    return padded_contact_mask
-        
 if __name__ == '__main__':
     main()
