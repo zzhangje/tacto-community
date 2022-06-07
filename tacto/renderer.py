@@ -68,7 +68,7 @@ class Renderer:
         else:
             self._background_real = None
 
-        logger.info("Loading configuration from: %s" % config_path)
+        # logger.info("Loading configuration from: %s" % config_path)
         self.conf = OmegaConf.load(config_path)
 
         self.force_enabled = (
