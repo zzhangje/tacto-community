@@ -65,7 +65,7 @@ def test_sim():
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    checkpoint_path = './weights/checkpoint_heightmap_digit.pth.tar'
+    checkpoint_path = './weights/checkpoint_heightmap_digit_sim.pth.tar'
 
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"

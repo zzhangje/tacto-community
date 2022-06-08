@@ -260,7 +260,8 @@ class Util3D:
             return line,
 
         ani = animation.FuncAnimation(fig, update, len(x), fargs=[x, y, line], interval = delay, blit=True)
-        ani.save(savepath, writer='ffmpeg', codec='h264')
+        ani.save(savepath + ".mp4", writer='ffmpeg', codec='h264')
+        fig.savefig(savepath + ".pdf", transparent = True, bbox_inches = 'tight', pad_inches = 0)
 
     def closeDensityMesh(self):
         self.p.close()
