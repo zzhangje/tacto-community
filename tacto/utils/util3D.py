@@ -49,6 +49,7 @@ class Util3D:
         # T[:3,:3] = R.from_euler('xyz', [0, 90, 0], degrees=True).as_matrix()
         # self.gelsight_mesh.rotate_y(90, point=self.gelsight_mesh.center, inplace = True)
 
+        self.virtual_buff = virtual_buff
         # self.gelsight_mesh = self.gelsight_mesh.transform(T, inplace = False)
         self.samplesActor, self.gelsightActorA, self.gelsightActorB, self.heightmapActor, self.imageActor, self.heatActor = None, None, None, None, None, None
         self.meanQuiverXActor, self.meanQuiverYActor, self.meanQuiverZActor, self.ellipsoidActor, self.frame_text = None, None, None, None, None
@@ -87,6 +88,9 @@ class Util3D:
         p.close()
 
     def initDensityMesh(self, gt_pose, save_path):
+
+        if self.virtual_buff: 
+            return
         self.p.subplot(0, 0)
         gt_pose = np.atleast_2d(gt_pose)
         dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False)
@@ -110,6 +114,9 @@ class Util3D:
         print(f"Animating particle filter at {save_path}.mp4")
 
     def updateHeatmap(self, samples, heat, heat_weights):
+        if self.virtual_buff: 
+            return
+
         self.p.subplot(0, 0)
         samplePoints = pv.PolyData(samples[:, :3])     
         dargs = dict(color = 'red',  show_scalar_bar=False, opacity=0.3, reset_camera = False)
@@ -135,6 +142,9 @@ class Util3D:
         return
 
     def updateDensityMesh(self, _particles, cluster_poses, cluster_stds, gt_pose, heat, heat_weights, image, heightmap, mask, count, image_savepath = None):
+        if self.virtual_buff: 
+            return
+        
         particles = copy.copy(_particles)
 
         samples = np.atleast_2d(particles.poses)
@@ -233,6 +243,9 @@ class Util3D:
 
     def drawGraph(self, x, y, savepath, delay, flag = 't'):
 
+        if self.virtual_buff: 
+            return
+        
         fig, ax = plt.subplots()
 
         plt.xlabel('Timestep', fontsize=12)
@@ -264,6 +277,8 @@ class Util3D:
         fig.savefig(savepath + ".pdf", transparent = True, bbox_inches = 'tight', pad_inches = 0)
 
     def closeDensityMesh(self):
+        if self.virtual_buff: 
+            return
         self.p.close()
         pv.close_all()
 
@@ -301,20 +316,6 @@ class Util3D:
     def loadDepthMap(self, depthFolder, idx):
         depthFiles = sorted(os.listdir(depthFolder), key=lambda y: int(y.split(".")[0]))
         return pv.read(os.path.join(depthFolder, depthFiles[idx])).points
-
-    def loadHeightmapsAndMasks(self, heightmapFolder, contactmaskFolder):
-        heightmapFiles = sorted(os.listdir(heightmapFolder), key=lambda y: int(y.split(".")[0]))
-        contactmaskFiles = sorted(os.listdir(contactmaskFolder), key=lambda y: int(y.split(".")[0]))
-        heightmaps, contactmasks = [], []
-
-        for heightmapFile, contactmaskFile in zip(heightmapFiles, contactmaskFiles): 
-            heightmap =  Image.open(os.path.join(heightmapFolder, heightmapFile))
-            # cv2.imread(os.path.join(heightmapFolder, heightmapFile), 0).astype(np.int64)
-            contactmask = Image.open(os.path.join(contactmaskFolder, contactmaskFile))
-            # cv2.imread(os.path.join(contactmaskFolder, contactmaskFile), 0).astype()
-            heightmaps.append(np.array(heightmap).astype(np.int64))
-            contactmasks.append(np.array(contactmask).astype(bool) )
-        return heightmaps, contactmasks
 
     def loadDepthMaps(self, depthFolder, downsample = 5e-4):
         depthMaps = []
@@ -674,3 +675,17 @@ def pose2quiver(poses, sz):
     quivers["zvectors"]  = r.apply(z) * sz
     quivers.set_active_vectors("zvectors")
     return quivers
+
+def loadHeightmapsAndMasks(heightmapFolder, contactmaskFolder):
+    heightmapFiles = sorted(os.listdir(heightmapFolder), key=lambda y: int(y.split("_")[0]))
+    contactmaskFiles = sorted(os.listdir(contactmaskFolder), key=lambda y: int(y.split("_")[0]))
+    heightmaps, contactmasks = [], []
+
+    for heightmapFile, contactmaskFile in zip(heightmapFiles, contactmaskFiles): 
+        heightmap =  Image.open(os.path.join(heightmapFolder, heightmapFile))
+        # cv2.imread(os.path.join(heightmapFolder, heightmapFile), 0).astype(np.int64)
+        contactmask = Image.open(os.path.join(contactmaskFolder, contactmaskFile))
+        # cv2.imread(os.path.join(contactmaskFolder, contactmaskFile), 0).astype()
+        heightmaps.append(np.array(heightmap).astype(np.int64))
+        contactmasks.append(np.array(contactmask).astype(bool) )
+    return heightmaps, contactmasks
