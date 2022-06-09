@@ -14,21 +14,26 @@ from shapeclosure.misc import *
 from tacto.fcrn import fcrn
 from matplotlib import cm
 from pyvistaqt import BackgroundPlotter
-from tacto.utils.util3D import loadHeightmapsAndMasks
+from tacto.utils.util3D import loadHeightmapAndMask
 
 dtype = torch.cuda.FloatTensor
 
-def heightmap3D(heightmap_path, mask_path, save_path, s = 0.002):
-    heightmaps, contactmasks = loadHeightmapsAndMasks(heightmap_path, mask_path)
-    for i, heightmap, mask in enumerate(zip(heightmaps, contactmasks)):
+def heightmap3D(heightmapFolder, contactmaskFolder, save_path, s = 0.002):
+    heightmapFiles = sorted(os.listdir(heightmapFolder), key=lambda y: int(y.split("_")[0]))
+    contactmaskFiles = sorted(os.listdir(contactmaskFolder), key=lambda y: int(y.split("_")[0]))
+    pbar = tqdm(total = len(heightmapFiles))
+    for i, (heightmapFile, contactmaskFile) in enumerate(zip(heightmapFiles, contactmaskFiles)):
+        heightmap, mask = loadHeightmapAndMask(os.path.join(heightmapFolder, heightmapFile), os.path.join(contactmaskFolder, contactmaskFile))
         plotter = pv.Plotter(off_screen=True)
         imagetex = pv.numpy_to_texture(-heightmap * mask.astype(np.float32))
         plane = pv.Plane(i_size = heightmap.shape[1] * s, j_size = heightmap.shape[0] * s, i_resolution = heightmap.shape[1] - 1, j_resolution = heightmap.shape[0] - 1)
         plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * (0.5*s) - 0.2
         plasma = cm.get_cmap('plasma')
         plotter.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
-        plotter.show(screenshot = osp.join(save_path, f'{i}_cloud.png'))
-
+        plotter.show(screenshot = osp.join(save_path, f'{i}_pred_cloud.png'))
+        plotter.close()
+        pbar.update(1)
+    pbar.close()
 def test_real():
     abspath = osp.abspath(__file__)
     dname = osp.dirname(abspath)
@@ -78,7 +83,7 @@ def test_sim():
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    checkpoint_path = '/home/rpluser/Documents/suddhu/projects/shape-closures/weights/checkpoint_heightmap_digit_sim.pth.tar'
+    checkpoint_path = '/home/rpluser/Documents/suddhu/projects/shape-closures/weights/checkpoint_heightmap_digit_real.pth.tar'
 
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"
@@ -136,7 +141,7 @@ def test_sim():
 if __name__ == '__main__':
     # test_real()
     # test_real()
-    heightmap_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-testing/heightmap'
-    mask_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-testing/mask'
-    save_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-testing/3D'
+    heightmap_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-sim2real/sim/heightmap'
+    mask_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-sim2real/sim/mask'
+    save_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-sim2real/sim/3D'
     heightmap3D(heightmap_path, mask_path, save_path, s = 0.002)

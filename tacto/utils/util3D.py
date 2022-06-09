@@ -676,16 +676,22 @@ def pose2quiver(poses, sz):
     quivers.set_active_vectors("zvectors")
     return quivers
 
+def loadHeightmapAndMask(heightmapFile, maskFile):
+    try:
+        heightmap = cv2.imread(heightmapFile, 0).astype(np.int64)
+        contactmask = cv2.imread(maskFile, 0).astype(np.int64)
+    except AttributeError: 
+        heightmap = np.zeros(heightmap.shape).astype(np.int64)
+        contactmask = np.zeros(contactmask.shape).astype(np.int64)
+    return heightmap, contactmask > 255/2
+
 def loadHeightmapsAndMasks(heightmapFolder, contactmaskFolder):
     heightmapFiles = sorted(os.listdir(heightmapFolder), key=lambda y: int(y.split("_")[0]))
     contactmaskFiles = sorted(os.listdir(contactmaskFolder), key=lambda y: int(y.split("_")[0]))
     heightmaps, contactmasks = [], []
 
     for heightmapFile, contactmaskFile in zip(heightmapFiles, contactmaskFiles): 
-        heightmap =  Image.open(os.path.join(heightmapFolder, heightmapFile))
-        # cv2.imread(os.path.join(heightmapFolder, heightmapFile), 0).astype(np.int64)
-        contactmask = Image.open(os.path.join(contactmaskFolder, contactmaskFile))
-        # cv2.imread(os.path.join(contactmaskFolder, contactmaskFile), 0).astype()
-        heightmaps.append(np.array(heightmap).astype(np.int64))
-        contactmasks.append(np.array(contactmask).astype(bool) )
+        heightmap, mask = loadHeightmapAndMask(os.path.join(heightmapFolder, heightmapFile), os.path.join(contactmaskFolder, contactmaskFile))
+        heightmaps.append(heightmap)
+        contactmasks.append(mask)
     return heightmaps, contactmasks
