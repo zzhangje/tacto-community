@@ -14,17 +14,20 @@ from shapeclosure.misc import *
 from tacto.fcrn import fcrn
 from matplotlib import cm
 from pyvistaqt import BackgroundPlotter
+from tacto.utils.util3D import loadHeightmapsAndMasks
 
 dtype = torch.cuda.FloatTensor
 
-def heightmap3D(heightmap, mask, savepath, s = 0.002):
-    plotter = pv.Plotter(off_screen=True)
-    imagetex = pv.numpy_to_texture(-heightmap * mask.astype(np.float32))
-    plane = pv.Plane(i_size = heightmap.shape[1] * s, j_size = heightmap.shape[0] * s, i_resolution = heightmap.shape[1] - 1, j_resolution = heightmap.shape[0] - 1)
-    plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * (0.5*s) - 0.2
-    plasma = cm.get_cmap('plasma')
-    plotter.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
-    plotter.show(screenshot=savepath)
+def heightmap3D(heightmap_path, mask_path, save_path, s = 0.002):
+    heightmaps, contactmasks = loadHeightmapsAndMasks(heightmap_path, mask_path)
+    for i, heightmap, mask in enumerate(zip(heightmaps, contactmasks)):
+        plotter = pv.Plotter(off_screen=True)
+        imagetex = pv.numpy_to_texture(-heightmap * mask.astype(np.float32))
+        plane = pv.Plane(i_size = heightmap.shape[1] * s, j_size = heightmap.shape[0] * s, i_resolution = heightmap.shape[1] - 1, j_resolution = heightmap.shape[0] - 1)
+        plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * (0.5*s) - 0.2
+        plasma = cm.get_cmap('plasma')
+        plotter.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
+        plotter.show(screenshot = osp.join(save_path, f'{i}_cloud.png'))
 
 def test_real():
     abspath = osp.abspath(__file__)
@@ -132,4 +135,8 @@ def test_sim():
 
 if __name__ == '__main__':
     # test_real()
-    test_real()
+    # test_real()
+    heightmap_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-testing/heightmap'
+    mask_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-testing/mask'
+    save_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-testing/3D'
+    heightmap3D(heightmap_path, mask_path, save_path, s = 0.002)
