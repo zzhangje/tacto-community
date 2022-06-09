@@ -12,16 +12,26 @@ from tqdm import tqdm
 from tacto.TactoRender import TactoRender, pixmm
 from shapeclosure.misc import *
 from tacto.fcrn import fcrn
-
+from matplotlib import cm
+from pyvistaqt import BackgroundPlotter
 
 dtype = torch.cuda.FloatTensor
+
+def heightmap3D(heightmap, mask, savepath, s = 0.002):
+    plotter = pv.Plotter(off_screen=True)
+    imagetex = pv.numpy_to_texture(-heightmap * mask.astype(np.float32))
+    plane = pv.Plane(i_size = heightmap.shape[1] * s, j_size = heightmap.shape[0] * s, i_resolution = heightmap.shape[1] - 1, j_resolution = heightmap.shape[0] - 1)
+    plane.points[:, -1] = np.flip(heightmap * mask.astype(np.float32), axis = 0).ravel() * (0.5*s) - 0.2
+    plasma = cm.get_cmap('plasma')
+    plotter.add_mesh(plane, texture=imagetex, cmap = plasma, show_scalar_bar=False)
+    plotter.show(screenshot=savepath)
 
 def test_real():
     abspath = osp.abspath(__file__)
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    checkpoint_path = './weights/checkpoint_heightmap_digit.pth.tar'
+    checkpoint_path = '/home/rpluser/Documents/suddhu/projects/shape-closures/weights/checkpoint_heightmap_digit_real.pth.tar'
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"
 
@@ -34,8 +44,7 @@ def test_real():
     # Load FCRN weights
     print(f'Loading weights: {checkpoint_path}')
     bg = tacRender.get_background(frame = 'gel')
-    FCRNModel = fcrn(checkpoint_path, bg)
-    FCRNModel.to(device)
+    FCRNModel = fcrn(checkpoint_path, bg, gpu = True)
 
     if not osp.exists(test_results_path):
         os.makedirs(test_results_path)
@@ -52,9 +61,10 @@ def test_real():
                 est_h = FCRNModel.image2heightmap(input_rgb_image)
                 est_c  = FCRNModel.heightmap2mask(est_h)
                 # pred_image /= np.max(pred_image)
-                plot.imsave(osp.join(test_results_path, "{count}_input.png"), input_rgb_image)
-                plot.imsave(osp.join(test_results_path, "{count}_pred_heightmap.png"), est_h, cmap="viridis")
-                plot.imsave(osp.join(test_results_path, "{count}_pred_mask.png"), est_c)
+                plot.imsave(osp.join(test_results_path, f"{count}_input.png"), input_rgb_image)
+                plot.imsave(osp.join(test_results_path, f"{count}_pred_heightmap.png"), est_h, cmap="viridis")
+                plot.imsave(osp.join(test_results_path, f"{count}_pred_mask.png"), est_c)
+                heightmap3D(est_h, est_c, osp.join(test_results_path, f"{count}_pred_3D.png"))
                 count += 1
             pbar.update(1)
         pbar.close()
@@ -65,7 +75,7 @@ def test_sim():
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    checkpoint_path = './weights/checkpoint_heightmap_digit_sim.pth.tar'
+    checkpoint_path = '/home/rpluser/Documents/suddhu/projects/shape-closures/weights/checkpoint_heightmap_digit_sim.pth.tar'
 
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"
@@ -74,14 +84,12 @@ def test_sim():
 
     test_loader = torch.utils.data.DataLoader(GelDataLoader(test_data_file, test_label_file),
                                                batch_size=50, shuffle=False, drop_last=True)
-    device = getDevice(cpu = False)
 
     tacRender = TactoRender(obj_path = None,  headless = True)
     # Load FCRN weights
     print(f'Loading weights: {checkpoint_path}')
     bg = tacRender.get_background(frame = 'gel')
-    FCRNModel = fcrn(checkpoint_path, bg)
-    FCRNModel.to(device)
+    FCRNModel = fcrn(checkpoint_path, bg, gpu = True)
 
     if not osp.exists(test_results_path):
         os.makedirs(test_results_path)
@@ -124,4 +132,4 @@ def test_sim():
 
 if __name__ == '__main__':
     # test_real()
-    test_sim()
+    test_real()
