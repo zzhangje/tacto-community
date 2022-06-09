@@ -13,11 +13,8 @@ from tacto.TactoRender import TactoRender, pixmm
 from shapeclosure.misc import *
 from tacto.fcrn import fcrn
 from matplotlib import cm
-<<<<<<< HEAD
-=======
 from pyvistaqt import BackgroundPlotter
 from tacto.utils.util3D import loadHeightmapsAndMasks
->>>>>>> 70c90e39ee8c24431b83c74ea72ff571715a1253
 
 dtype = torch.cuda.FloatTensor
 
