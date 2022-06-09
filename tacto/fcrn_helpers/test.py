@@ -13,7 +13,6 @@ from tacto.TactoRender import TactoRender, pixmm
 from shapeclosure.misc import *
 from tacto.fcrn import fcrn
 from matplotlib import cm
-from pyvistaqt import BackgroundPlotter
 
 dtype = torch.cuda.FloatTensor
 
@@ -35,10 +34,9 @@ def test_real():
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"
 
-    test_real_file = osp.join(data_file_path,'test_data_real.txt')
+    # test_real_file = osp.join(data_file_path,'test_data_real.txt')
+    test_real_file = osp.join(data_file_path,'test_data.txt')
     test_loader = torch.utils.data.DataLoader(RealDataLoader(test_real_file), batch_size=50, shuffle=False, drop_last=True)
-
-    device = getDevice(cpu = False)
 
     tacRender = TactoRender(obj_path = None,  headless = True)
     # Load FCRN weights
@@ -64,7 +62,6 @@ def test_real():
                 plot.imsave(osp.join(test_results_path, f"{count}_input.png"), input_rgb_image)
                 plot.imsave(osp.join(test_results_path, f"{count}_pred_heightmap.png"), est_h, cmap="viridis")
                 plot.imsave(osp.join(test_results_path, f"{count}_pred_mask.png"), est_c)
-                heightmap3D(est_h, est_c, osp.join(test_results_path, f"{count}_pred_3D.png"))
                 count += 1
             pbar.update(1)
         pbar.close()
