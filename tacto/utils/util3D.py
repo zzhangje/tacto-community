@@ -180,7 +180,7 @@ class Util3D:
            
         # visualize gelsight 
         transformed_gelsight_mesh = self.gelsight_mesh.transform(gen_quat_t(gt_pose), inplace = False)
-        dargs = dict(color = 'tan', ambient=0.0, opacity=0.5, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
+        dargs = dict(color = 'tan', ambient=0.0, opacity=0.7, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
         self.gelsightActorA = self.p.add_mesh(transformed_gelsight_mesh, **dargs)
 
         sigma_3 = 3. * np.mean(cluster_stds, axis = 1)
@@ -208,7 +208,7 @@ class Util3D:
         self.updateHeatmap(samples, heat, heat_weights)
 
         self.p.subplot(1, 1)
-        dargs = dict(color = 'tan', ambient=0.0, opacity=0.5, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
+        dargs = dict(color = 'tan', ambient=0.0, opacity=0.6, smooth_shading=True, show_edges=False, specular=1.0, show_scalar_bar=False)
         self.gelsightActorB = self.p.add_mesh(transformed_gelsight_mesh, **dargs)
 
         # ground truth pose 
