@@ -15,7 +15,7 @@ import collections
 from shapeclosure.misc import plotSubplots
 
 class fcrn:
-    def __init__(self, weights_path, bg, blend_sz = 0, real = False, gpu = True):
+    def __init__(self, weights_path, bg, blend_sz = 0, bottleneck = False, real = False, gpu = True):
 
         # print("setting devices...")
         use_cuda = torch.cuda.is_available() if gpu else False
@@ -29,7 +29,7 @@ class fcrn:
         self.batch_size = 1
         self.params = {'batch_size': self.batch_size, 'shuffle': False}
 
-        self.model = FCRN_net(self.batch_size)
+        self.model = FCRN_net(self.batch_size, bottleneck = bottleneck)
         checkpoint = torch.load(weights_path, map_location=self.device)
         print("=> loaded fcrn (epoch {})".format(checkpoint['epoch']))
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -63,6 +63,8 @@ class fcrn:
         # test_data: tactile img 640 * 480
         # result: height map 640 * 480
         # test_data = cv2.cvtColor(test_data, cv2.COLOR_RGB2BGR) 
+        assert self.model.bottleneck is False, "Bottleneck feature is enabled, can't carry out image2heightmap"
+
         test_data = cv2.normalize(test_data, None, alpha=0,beta=200, norm_type=cv2.NORM_MINMAX)
         # test_data = cv2.GaussianBlur(test_data,(15,15),cv2.BORDER_DEFAULT)
 
@@ -75,6 +77,22 @@ class fcrn:
                 if (output.shape[0] == 240):
                     output = cv2.resize(output, dsize=(640, 480), interpolation=cv2.INTER_CUBIC)
                 return self.blend_heightmaps(output)
+
+    def image2embedding(self, test_data):
+        if self.model.bottleneck is False:
+            print("Bottleneck feature extraction not enabled, switching")
+            self.model.bottleneck = True
+        # test_data: tactile img 640 * 480
+        test_data = cv2.normalize(test_data, None, alpha=0,beta=200, norm_type=cv2.NORM_MINMAX)
+        # test_data = cv2.GaussianBlur(test_data,(15,15),cv2.BORDER_DEFAULT)
+        test_set = TestDataLoader(test_data)
+        test_loader = torch.utils.data.DataLoader(test_set, **self.params)
+        with torch.no_grad():
+            for data in test_loader:
+                data = data.type(torch.FloatTensor).to(self.device)
+                output = self.model(data)[0].data.cpu().squeeze().numpy().astype(np.float16)
+                feature = output.reshape((-1,10*8*1024))
+                return feature
 
     def heightmap2mask(self, heightmap):
         heightmap = heightmap[self.b:-self.b,self.b:-self.b]

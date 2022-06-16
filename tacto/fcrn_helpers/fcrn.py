@@ -120,10 +120,11 @@ class UpProject(nn.Module):
 
 class FCRN_net(nn.Module):
 
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, bottleneck = False):
         super(FCRN_net, self).__init__()
         self.inplanes = 64
         self.batch_size = batch_size
+        self.bottleneck = bottleneck
 
         # ResNet with out avrgpool & fc
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -192,7 +193,9 @@ class FCRN_net(nn.Module):
         x = self.layer4(x)
 
         x = self.conv2(x)
-        x = self.bn2(x) # feature vector
+        x = self.bn2(x)
+        if self.bottleneck: 
+            return x  # feature vector
 
         x = self.up1(x)
         x = self.up2(x)
@@ -205,5 +208,4 @@ class FCRN_net(nn.Module):
         x = self.relu(x)
 
         x = self.upsample(x)
-
         return x
