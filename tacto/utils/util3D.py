@@ -305,7 +305,7 @@ class Util3D:
         if nPoints is not None:
             p.show(screenshot=save_path, auto_close = not self.off_screen)
             viewup = [0.5, 0.5, 1]
-            path = p.generate_orbital_path(factor=3.0, viewup=viewup, n_points=nPoints,  shift=mesh.length/(np.sqrt(3)))
+            path = p.generate_orbital_path(factor=8.0, viewup=viewup, n_points=nPoints,  shift=mesh.length/(np.sqrt(3)))
             p.open_movie(save_path + ".mp4")
             p.orbit_on_path(path, write_frames=True, viewup=[0, 0, 1], step=0.01, progress_bar = True)
         else:
