@@ -8,11 +8,11 @@ import cv2
 
 from .TactoRender import TactoRender, pixmm
 from .utils.util3D import Util3D
-from shapeclosure.misc import *
+from midastouch.misc import *
 from PIL import Image
 import pickle 
 import collections 
-from shapeclosure.misc import plotSubplots
+from midastouch.misc import plotSubplots
 
 class fcrn:
     def __init__(self, weights_path, bg, blend_sz = 0, bottleneck = False, real = False, gpu = True):
@@ -94,7 +94,7 @@ class fcrn:
                 feature = output.reshape((-1,10*8*1024))
                 return feature
 
-    def heightmap2mask(self, heightmap):
+    def heightmap2mask(self, heightmap, small_parts = False):
         heightmap = heightmap[self.b:-self.b,self.b:-self.b]
         init_height = self.bg[self.b:-self.b,self.b:-self.b]
         diff_heights = heightmap - init_height
@@ -102,15 +102,20 @@ class fcrn:
         contact_mask = diff_heights > np.percentile(diff_heights, 90) * self.r
         padded_contact_mask = np.zeros(self.bg.shape, dtype=bool)
 
-        if np.count_nonzero(contact_mask) < 0.1*(contact_mask.shape[0] * contact_mask.shape[1]):
+        if small_parts:
+            atleast_area = 0.01*(contact_mask.shape[0] * contact_mask.shape[1])
+        else:
+            atleast_area = 0.1*(contact_mask.shape[0] * contact_mask.shape[1])
+
+        if np.count_nonzero(contact_mask) < atleast_area:
             return padded_contact_mask
         padded_contact_mask[self.b:-self.b,self.b:-self.b] = contact_mask
         return padded_contact_mask
 
 if __name__ == "__main__":
     obj_name, log_id = '035_power_drill', 0
-    data_path = osp.join("/home/suddhu/projects/fair-3d/shape-closures/data", obj_name, str(log_id).zfill(2))
-    obj_path = osp.join("/home/suddhu/projects/fair-3d/shape-closures/models", obj_name, "google_512k/nontextured.stl")
+    data_path = osp.join("/home/robospare/suddhu/midastouch/data", obj_name, str(log_id).zfill(2))
+    obj_path = osp.join("/home/robospare/suddhu/midastouch/models", obj_name, "google_512k/nontextured.stl")
 
     image_path, pose_path = osp.join(data_path, "tactile_images"), osp.join(data_path, "tactile_data.pkl") 
     heightmap_path, contactmask_path = osp.join(data_path, "gt_heightmaps"), osp.join(data_path, "gt_contactmasks")

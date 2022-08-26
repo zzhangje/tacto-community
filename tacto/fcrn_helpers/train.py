@@ -94,7 +94,7 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(checkpoint_path))
     else:
-        weights_file = "/home/rpluser/Documents/suddhu/projects/shape-closures/weights/NYU_ResNet-UpProj.npy"
+        weights_file = "/home/robospare/suddhu/midastouch/weights/NYU_ResNet-UpProj.npy"
         print("=> loading pre-trained NYU weights'{}'".format(weights_file))
         model.load_state_dict(load_weights(model, weights_file, dtype))
 

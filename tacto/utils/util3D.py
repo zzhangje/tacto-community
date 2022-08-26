@@ -42,9 +42,9 @@ class Util3D:
 
         # load and rotate gelsight mesh 
         if virtual_buff:
-            self.gelsight_mesh = pv.read("/home/rpluser/Documents/suddhu/projects/shape-closures/models/digit/digit.STL")
+            self.gelsight_mesh = pv.read("/home/robospare/suddhu/midastouch/models/digit/digit.STL")
         else:
-            self.gelsight_mesh = pv.read("/home/suddhu/rpl/datasets/YCBModels/digit/digit.STL")
+            self.gelsight_mesh = pv.read("/home/robospare/suddhu/midastouch/data/YCBModels/digit/digit.STL")
         # T = np.eye(4)
         # T[:3,:3] = R.from_euler('xyz', [0, 90, 0], degrees=True).as_matrix()
         # self.gelsight_mesh.rotate_y(90, point=self.gelsight_mesh.center, inplace = True)
@@ -87,17 +87,18 @@ class Util3D:
         p.screenshot(savepath, transparent_background = True)  
         p.close()
 
-    def initDensityMesh(self, gt_pose, save_path):
+    def initDensityMesh(self, gt_pose, save_path, zoom = 1):
 
         if self.virtual_buff: 
             return
         self.p.subplot(0, 0)
+        self.zoom = zoom
         gt_pose = np.atleast_2d(gt_pose)
         dargs = dict(color="grey", ambient=0.6, opacity=0.5, smooth_shading=True, specular=1.0, show_scalar_bar=False)
         self.p.add_mesh(self.mesh, **dargs)
         # self.p.set_focus(self.mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
-        self.p.camera.Zoom(1)
+        self.p.camera.Zoom(self.zoom)
         self.p.camera_set = True
 
         traj_plot = gt_pose[:, :3].copy()
@@ -136,7 +137,7 @@ class Util3D:
 
         self.p.set_focus(self.deci_mesh.center)
         self.p.camera_position, self.p.camera.azimuth, self.p.camera.elevation = 'yz', 45, 20
-        self.p.camera.Zoom(0.9)
+        self.p.camera.Zoom(0.7)
         self.p.camera_set = True
 
         return

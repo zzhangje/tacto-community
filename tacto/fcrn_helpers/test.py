@@ -10,7 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plot
 from tqdm import tqdm 
 from tacto.TactoRender import TactoRender, pixmm
-from shapeclosure.misc import *
+from midastouch.misc import *
 from tacto.fcrn import fcrn
 from matplotlib import cm
 from pyvistaqt import BackgroundPlotter
@@ -39,7 +39,7 @@ def test_real():
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    checkpoint_path = '/home/rpluser/Documents/suddhu/projects/shape-closures/weights/checkpoint_heightmap_digit_real.pth.tar'
+    checkpoint_path = '/home/robospare/suddhu/midastouch/weights/checkpoint_heightmap_digit_real.pth.tar'
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"
 
@@ -81,7 +81,7 @@ def test_sim():
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    checkpoint_path = '/home/rpluser/Documents/suddhu/projects/shape-closures/weights/checkpoint_heightmap_digit_real.pth.tar'
+    checkpoint_path = '/home/robospare/suddhu/midastouch/weights/checkpoint_heightmap_digit_real.pth.tar'
 
     data_file_path = osp.join("data_files")
     test_results_path = "/mnt/sda/suddhu/fcrn/fcrn-testing"
@@ -139,7 +139,7 @@ def test_sim():
 if __name__ == '__main__':
     # test_real()
     # test_real()
-    heightmap_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-sim2real/sim/heightmap'
-    mask_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-sim2real/sim/mask'
-    save_path = '/home/suddhu/projects/fair-3d/shape-closures/data/fcrn-sim2real/sim/3D'
+    heightmap_path = '/home/robospare/suddhu/midastouch/data/fcrn-sim2real/sim/heightmap'
+    mask_path = '/home/robospare/suddhu/midastouch/data/fcrn-sim2real/sim/mask'
+    save_path = '/home/robospare/suddhu/midastouch/data/fcrn-sim2real/sim/3D'
     heightmap3D(heightmap_path, mask_path, save_path, s = 0.002)
