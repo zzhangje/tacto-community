@@ -187,7 +187,7 @@ if __name__ == "__main__":
     dname = osp.dirname(abspath)
     os.chdir(dname)
 
-    config_file = "../../shapeclosure/config/config.ini"
+    config_file = "../../midastouch/config/config.ini"
 
     obj_model = "035_power_drill"
     config = configparser.ConfigParser()

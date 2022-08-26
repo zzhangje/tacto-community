@@ -9,7 +9,7 @@ abspath = osp.abspath(__file__)
 dname = osp.dirname(abspath)
 os.chdir(dname)
 
-data_root_path = "/mnt/sda/suddhu/shape-closures/data/real/"
+data_root_path = "/home/robospare/suddhu/midastouch/data/real/"
 objects = sorted(os.listdir(data_root_path))
 
 # write training/validation/testing data loader files
