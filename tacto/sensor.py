@@ -36,6 +36,9 @@ def get_omnitact_config_path():
     return _get_default_config("config_omnitact.yml")
 
 def get_background_image_path(flag = 0):
+    """
+    Select real-world bg template
+    """
     if flag is None: 
         return _get_default_config("bgs/bg.jpg")
     else: 

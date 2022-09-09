@@ -23,7 +23,6 @@ import logging
 import cv2
 import numpy as np
 import pyrender
-from tacto.utils.utils import gen_t_quat
 import trimesh
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation as R
@@ -402,6 +401,9 @@ class Renderer:
             self.current_light_nodes.append(light_node)
 
     def randomize_light(self):
+        """
+        Randomize light parameters for training augmentation
+        """
         # remove existing 
         self.light_nodes = []
         self.light_poses0 = []
@@ -467,7 +469,6 @@ class Renderer:
 
         if DEBUG: 
             pyrender.Viewer(self.scene, use_raymond_lighting=True)
-        # print(f"Gel pose: {gen_t_quat(gel_pose)}, \nCam pose: {gen_t_quat(camera_pose)}")
 
     def update_object_pose(self, obj_name, position, orientation):
         """
