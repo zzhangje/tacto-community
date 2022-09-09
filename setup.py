@@ -12,7 +12,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 install_requires = [line.rstrip() for line in open("requirements/requirements.txt", "r")]
 
 package_data = {
-    'tacto': ["config_digit.yml", "config_omnitact.yml"]
+    'tacto': ["config_digit.yml", "config_digit_shadow.yml", "config_omnitact.yml"]
 }
 
 
