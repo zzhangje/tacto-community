@@ -3,8 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from .DigitLoader import DigitLoader
-from .ObjectLoader import ObjectLoader
+from .digit_loader import digit_loader
+from .object_loader import object_loader
 
 __author__ = "Wang, Shaoxiong and Lambeta, Mike and Chou, Po-Wei and Calandra, Roberto"
 __contact__ = "sxwang@fb.com, lambetam@fb.com, poweic@fb.com, rcalandra@fb.com"

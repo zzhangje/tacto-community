@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import pyrender
 from ..config import config_digit as config
 
-class DigitLoader:
+class digit_loader:
     def __init__(self, gel_path = None):
         # load gelpad models
         if gel_path is not None:
@@ -66,4 +66,4 @@ class DigitLoader:
 
 if __name__ == "__main__":
     gel_path = osp.join("..", "calibs", "gel_surface_mm.obj")
-    gel_loader = DigitLoader(gel_path)
+    gel_loader = digit_loader(gel_path)

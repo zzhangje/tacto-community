@@ -11,7 +11,7 @@ import numpy as np
 import trimesh
 import pyrender
 
-class ObjectLoader:
+class object_loader:
     def __init__(self, obj_path):
 
         obj_trimesh = trimesh.load(obj_path)
@@ -30,4 +30,4 @@ class ObjectLoader:
 if __name__ == "__main__":
     obj_name = "005_tomato_soup_can"
     obj_path = osp.join("..", "data", obj_name, "google_512k", "nontextured.stl")
-    obj_loader = ObjectLoader(obj_path)
+    obj_loader = object_loader(obj_path)
