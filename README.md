@@ -33,7 +33,9 @@ Alternatively, you can manually clone the repository and install the package usi
 ```bash
 git clone https://github.com/facebookresearch/tacto.git
 cd tacto
-pip install -r requirements.txt
+conda create -n tacto python=3.9
+conda activate tacto
+pip install -r requirements/requirements.txt
 pip install -e .
 ```
 
