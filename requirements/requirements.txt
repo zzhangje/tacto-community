@@ -5,7 +5,7 @@ opencv-python >= 3.4.2.17
 omegaconf >= 2.0.6
 pyrender >= 0.1.43
 hydra-core >= 1.0.6
-urdfpy >= 0.0.22
+urchin
 scipy
 
 # tacrender
