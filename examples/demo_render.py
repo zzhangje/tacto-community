@@ -8,7 +8,6 @@ import numpy as np
 import tacto  # Import TACTO
 from scipy import signal
 
-
 def generate_ball(xyz):
     N = 100
     M = 150
@@ -49,7 +48,7 @@ def main():
     plt.imshow(color)
     plt.subplot(122)
     plt.imshow(0.022 - depth, cmap="gray")
-    plt.show()
+    plt.savefig("demo_render.png")
 
 
 if __name__ == "__main__":
