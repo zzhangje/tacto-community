@@ -1,6 +1,6 @@
 # TACTO Patch
 
-Since [TACTO](https://github.com/facebookresearch/tacto) has already been archived and modern version of **Python** and its dependencies like `numpy`, `pyglet`, `pyrender` and `pyopengl` can cause compatibility issues, it make perfect sense to freeze the **Python _3.8_** version and most dependency versions.
+Since [TACTO](https://github.com/facebookresearch/tacto) has already been **archived** and modern version of **_Python_** and its dependencies like `numpy`, `pyglet`, `pyrender` and `pyopengl` can cause compatibility issues, it makes perfect sense to freeze the **_Python 3.8_** version and most dependency versions.
 
 > Note: This is a **patched version** of [TACTO](https://github.com/facebookresearch/tacto).
 
