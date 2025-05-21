@@ -27,8 +27,8 @@ NOTE: the simulator is not meant to provide a physically accurate dynamics of th
 Please manually clone the repository and install the package using:
 
 ```bash
-git clone https://github.com/zhangzrjerry/tactopatch.git
-cd tactopatch
+git clone https://github.com/zhangzrjerry/TactoPatch.git
+cd TactoPatch
 
 # conda
 conda create -n ${env_name} python=3.8
