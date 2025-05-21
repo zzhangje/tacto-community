@@ -52,5 +52,5 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: POSIX :: Linux",
     ],
-    python_requires="==3.8",
+    python_requires="==3.8.*",
 )
