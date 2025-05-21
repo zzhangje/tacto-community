@@ -13,8 +13,9 @@ from .sensor import (  # noqa: F401; noqa: F401
 )
 
 __author__ = "Wang, Shaoxiong and Lambeta, Mike and Chou, Po-Wei and Calandra, Roberto"
+__maintainer__ = "ZhangzrJerry"
 __contact__ = "sxwang@fb.com, lambetam@fb.com, poweic@fb.com, rcalandra@fb.com"
-__version__ = "0.0.3"  # Source of truth for tacto's version
+__version__ = "0.0.3"
 
 _exported_dunders = {
     "__version__",

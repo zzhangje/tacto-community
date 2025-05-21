@@ -1,5 +1,5 @@
 -r requirements.txt
 
-torch
+torch==0.10.0
 gym
 pybulletX >= 0.4.1

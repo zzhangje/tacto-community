@@ -12,7 +12,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 install_requires = [line.rstrip() for line in open("requirements/requirements.txt", "r")]
 
 package_data = {
-    'tacto': ["config_digit.yml", "config_omnitact.yml"]
+    'tacto': ["config_digit.yml", "config_omnitact.yml", "config_digit_shadow.yml"]
 }
 
 
@@ -35,9 +35,11 @@ setup(
     name="tacto",
     version=find_version("tacto/__init__.py"),
     description="Simulator for vision-based tactile sensors.",
-    url="https://github.com/facebookresearch/tacto",
+    url="https://github.com/zhangzrjerry/tactopatch",
     author="Roberto Calandra",
     author_email="rcalandra@fb.com",
+    maintainer="ZhangzrJerry",
+    maintainer_email="zhangzrjerry@outlook.com",
     keywords=["science"],
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -50,5 +52,5 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: POSIX :: Linux",
     ],
-    python_requires=">=3.6",
+    python_requires="==3.8",
 )
