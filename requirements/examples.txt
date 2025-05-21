@@ -2,4 +2,5 @@
 
 torch
 gym
-pybulletX >= 0.4.1
+pybulletX @ git+https://github.com/ZhangzrJerry/PybulletxPatch.git
+
