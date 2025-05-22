@@ -1,4 +1,4 @@
--r examples.txt
+-r requirements.txt
 
 # For development, testing, and packaging
 pre-commit

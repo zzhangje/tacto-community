@@ -1,6 +1,6 @@
 -r requirements.txt
 
-torch==0.10.0
+torch
 gym
 pybulletX @ git+https://github.com/ZhangzrJerry/PybulletxPatch.git
 
