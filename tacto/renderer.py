@@ -11,7 +11,7 @@ Set backend platform for OpenGL render (pyrender.OffscreenRenderer)
 - OSMesa, a software renderer. require extra install OSMesa.
   (https://pyrender.readthedocs.io/en/latest/install/index.html#installing-osmesa)
 - EGL, which allows for GPU-accelerated rendering without a display manager.
-  Requires NVIDIA’s drivers.
+  Requires NVIDIA's drivers.
 
 The handle for EGL is egl (preferred, require NVIDIA driver),
 The handle for OSMesa is osmesa.
@@ -383,6 +383,28 @@ class Renderer:
 
         self.object_nodes[obj_name] = obj_node
         self.current_object_nodes[obj_name] = obj_node
+
+
+    def update_camera_pose_from_matrix(self, pose):
+        """
+        Update sensor pose (including camera, lighting, and gel surface)
+        """
+
+        # Update camera
+        for i in range(self.nb_cam):
+            camera_pose = pose.dot(self.camera_zero_poses[i])
+            self.camera_nodes[i].matrix = camera_pose
+
+        # Update gel
+        gel_pose = pose.dot(self.gel_pose0)
+        self.gel_node.matrix = gel_pose
+
+        # Update light
+        for i in range(len(self.light_nodes)):
+            light_pose = pose.dot(self.light_poses0[i])
+            light_node = self.light_nodes[i]
+            light_node.matrix = light_pose
+
 
     def update_camera_pose(self, position, orientation):
         """
