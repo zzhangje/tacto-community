@@ -1,11 +1,10 @@
-numpy
+numpy 
+pyrender @ git+https://github.com/ZhangzrJerry/PyrenderPatch.git
+urdfpy @ git+https://github.com/ZhangzrJerry/UrdfpyPatch.git
 pybullet
 matplotlib
-
 opencv-python >= 3.4.2.17
 omegaconf 
-pyrender @ git+https://github.com/ZhangzrJerry/PyrenderPatch.git
 hydra-core >= 1.0.6
-urdfpy @ git+https://github.com/ZhangzrJerry/UrdfpyPatch.git
 scipy
 pyopengl
