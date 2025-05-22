@@ -38,7 +38,7 @@ setup(
     url="https://github.com/zhangzrjerry/tactopatch",
     author="Roberto Calandra",
     author_email="rcalandra@fb.com",
-    maintainer="ZhangzrJerry",
+    maintainer="Zirui Zhang",
     maintainer_email="zhangzrjerry@outlook.com",
     keywords=["science"],
     long_description=long_description,
@@ -52,5 +52,5 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: POSIX :: Linux",
     ],
-    python_requires="==3.8.*",
+    python_requires=">=3.8",
 )
