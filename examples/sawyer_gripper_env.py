@@ -14,7 +14,7 @@ from gym.envs.registration import register
 
 import numpy as np
 import pybullet as p
-from attrdict import AttrMap
+from box import Box as AttrMap
 from omegaconf import OmegaConf
 
 import pybulletX as px

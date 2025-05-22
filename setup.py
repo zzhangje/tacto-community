@@ -38,6 +38,8 @@ setup(
     url="https://github.com/facebookresearch/tacto",
     author="Roberto Calandra",
     author_email="rcalandra@fb.com",
+    maintainer="Zirui Zhang",
+    maintainer_email="zhangzrjerry@outlook.com",
     keywords=["science"],
     long_description=long_description,
     long_description_content_type="text/markdown",
