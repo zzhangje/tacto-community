@@ -18,43 +18,38 @@ The handle for OSMesa is osmesa.
 Default is pyglet, which requires active window
 """
 
-# import os
-# os.environ["PYOPENGL_PLATFORM"] = "egl"
-
 import logging
 
 import cv2
 import numpy as np
-import pybullet as p
 import pyrender
 import trimesh
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation as R
+import copy
 
 logger = logging.getLogger(__name__)
+
+DEBUG = False
 
 
 def euler2matrix(angles=[0, 0, 0], translation=[0, 0, 0], xyz="xyz", degrees=False):
     r = R.from_euler(xyz, angles, degrees=degrees)
-
     pose = np.eye(4)
     pose[:3, 3] = translation
     pose[:3, :3] = r.as_matrix()
     return pose
 
 
-# def euler2matrix(angles=[0, 0, 0], translation=[0, 0, 0]):
-#     q = p.getQuaternionFromEuler(angles)
-#     r = np.array(p.getMatrixFromQuaternion(q)).reshape(3, 3)
-
-#     pose = np.eye(4)
-#     pose[:3, 3] = translation
-#     pose[:3, :3] = r
-#     return pose
+def matrix2euler(pose, xyz="xyz", degrees=False):
+    r = R.from_matrix(pose[:3, :3])
+    angles = r.as_euler(xyz, degrees=degrees)
+    translation = pose[:3, 3]
+    return angles, translation
 
 
 class Renderer:
-    def __init__(self, width, height, background, config_path):
+    def __init__(self, width, height, background, config_path, headless=False):
         """
 
         :param width: scalar
@@ -62,6 +57,12 @@ class Renderer:
         :param background: image
         :param config_path:
         """
+
+        if headless:
+            import os
+
+            os.environ["PYOPENGL_PLATFORM"] = "egl"
+
         self._width = width
         self._height = height
 
@@ -70,7 +71,7 @@ class Renderer:
         else:
             self._background_real = None
 
-        logger.info("Loading configuration from: %s" % config_path)
+        # logger.info("Loading configuration from: %s" % config_path)
         self.conf = OmegaConf.load(config_path)
 
         self.force_enabled = (
@@ -117,6 +118,10 @@ class Renderer:
     def background(self):
         return self._background_real
 
+    @property
+    def f(self):
+        return self.focal_length
+
     def _init_pyrender(self):
         """
         Initialize pyrender
@@ -135,37 +140,36 @@ class Renderer:
         self.current_object_nodes = {}
 
         self.current_light_nodes = []
+        self.current_light_nodes_depth = []
         self.cam_light_ids = []
 
         self._init_gel()
         self._init_camera()
-        self._init_light()
 
-        self.r = pyrender.OffscreenRenderer(self.width, self.height)
+        # Load light from config file
+        self.default_light = self.conf.sensor.lights
+        self._init_light(self.default_light)
 
+        yfov = self.conf.sensor.camera[0].yfov
+        # P = self.camera_nodes[0].camera.get_projection_matrix()
+        self.focal_length = 0.5 * self.height / np.tan(np.deg2rad(yfov) / 2.0)
+
+        if DEBUG:
+            self.r = pyrender.Renderer(self.width, self.height)
+            print("\n-----------Debug mode, on screen rendering of poses-----------\n")
+        else:
+            self.r = pyrender.OffscreenRenderer(self.width, self.height)
+            self.get_background_sim()
+
+    def get_background_sim(self):
         colors, depths = self.render(object_poses=None, noise=False, calibration=False)
-
         self.depth0 = depths
         self._background_sim = colors
 
-    def _init_gel(self):
-        """
-        Add gel surface in the scene
-        """
-        # Create gel surface (flat/curve surface based on config file)
-        gel_trimesh = self._generate_gel_trimesh()
-
-        mesh_gel = pyrender.Mesh.from_trimesh(gel_trimesh, smooth=False)
-        self.gel_pose0 = np.eye(4)
-        self.gel_node = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
-        self.scene.add_node(self.gel_node)
-
-        # Add extra gel node into scene_depth
-        self.gel_node_depth = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
-        self.scene_depth.add_node(self.gel_node_depth)
+    def _close_pyrender(self):
+        self.r.delete()
 
     def _generate_gel_trimesh(self):
-
         # Load config
         g = self.conf.sensor.gel
         origin = g.origin
@@ -203,7 +207,7 @@ class Renderer:
             z = np.linspace(Z0 - H / 2, Z0 + H / 2, M)
             yy, zz = np.meshgrid(y, z)
 
-            h = R - np.maximum(0, R ** 2 - (yy - Y0) ** 2 - (zz - Z0) ** 2) ** 0.5
+            h = R - np.maximum(0, R**2 - (yy - Y0) ** 2 - (zz - Z0) ** 2) ** 0.5
             xx = X0 - zrange * h / h.max()
 
             gel_trimesh = self._generate_trimesh_from_depth(xx)
@@ -262,6 +266,22 @@ class Renderer:
 
         return gel_trimesh
 
+    def _init_gel(self):
+        """
+        Add gel surface in the scene
+        """
+        # Create gel surface (flat/curve surface based on config file)
+        gel_trimesh = self._generate_gel_trimesh()
+
+        mesh_gel = pyrender.Mesh.from_trimesh(gel_trimesh, smooth=False)
+        self.gel_pose0 = np.eye(4)
+        self.gel_node = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
+        self.scene.add_node(self.gel_node)
+
+        # Add extra gel node into scene_depth
+        self.gel_node_depth = pyrender.Node(mesh=mesh_gel, matrix=self.gel_pose0)
+        self.scene_depth.add_node(self.gel_node_depth)
+
     def _init_camera(self):
         """
         Set up camera
@@ -277,10 +297,12 @@ class Renderer:
             cami = conf_cam[i]
 
             camera = pyrender.PerspectiveCamera(
-                yfov=np.deg2rad(cami.yfov), znear=cami.znear,
+                yfov=np.deg2rad(cami.yfov),
+                znear=cami.znear,
             )
             camera_zero_pose = euler2matrix(
-                angles=np.deg2rad(cami.orientation), translation=cami.position,
+                angles=np.deg2rad(cami.orientation),
+                translation=cami.position,
             )
             self.camera_zero_poses.append(camera_zero_pose)
 
@@ -298,13 +320,10 @@ class Renderer:
             # Add corresponding light for rendering the camera
             self.cam_light_ids.append(list(cami.lightIDList))
 
-    def _init_light(self):
+    def _init_light(self, light):
         """
         Set up light
         """
-
-        # Load light from config file
-        light = self.conf.sensor.lights
 
         origin = np.array(light.origin)
 
@@ -329,7 +348,6 @@ class Renderer:
         self.light_poses0 = []
 
         for i in range(len(colors)):
-
             if not self.spot_light_enabled:
                 # create pyrender.PointLight
                 color = colors[i]
@@ -368,6 +386,54 @@ class Renderer:
             # Add extra light node into scene_depth
             light_node_depth = pyrender.Node(light=light, matrix=light_pose_0)
             self.scene_depth.add_node(light_node_depth)
+            self.current_light_nodes_depth.append(light_node_depth)
+
+    def update_light(self, lightIDList):
+        """
+        Update the light node based on lightIDList, remove the previous light
+        """
+        # Remove previous light nodes
+        for node in self.current_light_nodes:
+            self.scene.remove_node(node)
+
+        # Add light nodes
+        self.current_light_nodes = []
+        for i in lightIDList:
+            light_node = self.light_nodes[i]
+            self.scene.add_node(light_node)
+            self.current_light_nodes.append(light_node)
+
+    def randomize_light(self):
+        """
+        Randomize light parameters for training augmentation
+        """
+        # remove existing
+        self.light_nodes = []
+        self.light_poses0 = []
+        for node in self.current_light_nodes:
+            self.scene.remove_node(node)
+        for node in self.current_light_nodes_depth:
+            self.scene_depth.remove_node(node)
+        self.current_light_nodes = []
+        self.current_light_nodes_depth = []
+
+        light = copy.deepcopy(self.default_light)
+
+        # randomize self.conf.sensor.lights properties
+        light.origin = (
+            np.array(light.origin) + np.random.normal(loc=0.0, scale=1e-3, size=3)
+        ).tolist()  # 1mm variation in light origin
+        light.xrtheta.rs = (
+            np.array(light.xrtheta.rs) + np.random.normal(loc=0.0, scale=1e-3, size=3)
+        ).tolist()  # 1mm variation in radial light position
+        light.xrtheta.thetas = (
+            np.array(light.xrtheta.thetas) + np.random.normal(loc=0.0, scale=5, size=3)
+        ).tolist()  # 5 deg variation in theta position
+        light.intensities = (
+            np.array(light.intensities) + np.random.normal(loc=0.0, scale=0.5, size=3)
+        ).tolist()  # 1 unit variation in lighting
+        self._init_light(light)
+        # self.get_background_sim()
 
     def add_object(
         self, objTrimesh, obj_name, position=[0, 0, 0], orientation=[0, 0, 0]
@@ -410,8 +476,14 @@ class Renderer:
         """
         Update sensor pose (including camera, lighting, and gel surface)
         """
-
         pose = euler2matrix(angles=orientation, translation=position)
+        self.update_camera_pose_from_matrix(pose)
+
+    def update_camera_pose_from_matrix(self, tf_matrix):
+        """
+        Update sensor pose (including camera, lighting, and gel surface)
+        """
+        pose = tf_matrix.copy()
 
         # Update camera
         for i in range(self.nb_cam):
@@ -428,29 +500,25 @@ class Renderer:
             light_node = self.light_nodes[i]
             light_node.matrix = light_pose
 
-    def update_object_pose(self, obj_name, position, orientation):
+        if DEBUG:
+            pyrender.Viewer(self.scene, use_raymond_lighting=True)
+
+    def update_object_pose(self, obj_name, pose):
         """
         orientation: euler angles
         """
 
         node = self.object_nodes[obj_name]
-        pose = euler2matrix(angles=orientation, translation=position)
         self.scene.set_pose(node, pose=pose)
 
-    def update_light(self, lightIDList):
-        """
-        Update the light node based on lightIDList, remove the previous light
-        """
-        # Remove previous light nodes
-        for node in self.current_light_nodes:
-            self.scene.remove_node(node)
+    # def update_object_pose(self, obj_name, position, orientation):
+    #     """
+    #     orientation: euler angles
+    #     """
 
-        # Add light nodes
-        self.current_light_nodes = []
-        for i in lightIDList:
-            light_node = self.light_nodes[i]
-            self.scene.add_node(light_node)
-            self.current_light_nodes.append(light_node)
+    #     node = self.object_nodes[obj_name]
+    #     pose = euler2matrix(angles=orientation, translation=position)
+    #     self.scene.set_pose(node, pose=pose)
 
     def _add_noise(self, color):
         """
@@ -506,7 +574,11 @@ class Renderer:
         return 0
 
     def adjust_with_force(
-        self, camera_pos, camera_ori, normal_forces, object_poses,
+        self,
+        camera_pos,
+        camera_ori,
+        normal_forces,
+        object_poses,
     ):
         """
         Adjust object pose with normal force feedback
@@ -545,7 +617,7 @@ class Renderer:
                 obj_pos = np.array(obj_pos)
 
                 direction = camera_pos - obj_pos
-                direction = direction / (np.sum(direction ** 2) ** 0.5 + 1e-6)
+                direction = direction / (np.sum(direction**2) ** 0.5 + 1e-6)
                 obj_pos = obj_pos + offset * self.max_deformation * direction
 
             self.update_object_pose(obj_name, obj_pos, objOri)
@@ -584,7 +656,10 @@ class Renderer:
                 camera_ori = R.from_matrix(camera_pose[:3, :3]).as_quat()
 
                 self.adjust_with_force(
-                    camera_pos, camera_ori, normal_forces, object_poses,
+                    camera_pos,
+                    camera_ori,
+                    normal_forces,
+                    object_poses,
                 )
 
             color, depth = self.r.render(self.scene, flags=self.flags_render)
