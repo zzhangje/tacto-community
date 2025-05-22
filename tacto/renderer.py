@@ -466,7 +466,7 @@ class Renderer:
 
         if self._background_real is not None:
             # Simulated difference image, with scaling factor 0.5
-            diff = (color.astype(np.float) - self._background_sim[camera_index]) * 0.5
+            diff = (color.astype(np.float64) - self._background_sim[camera_index]) * 0.5
 
             # Add low-pass filter to match real readings
             diff = cv2.GaussianBlur(diff, (7, 7), 0)
