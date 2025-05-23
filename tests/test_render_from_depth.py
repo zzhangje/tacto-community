@@ -8,11 +8,9 @@ import os
 import numpy as np  # noqa: E402
 import tacto  # noqa: E402
 
-os.environ["PYOPENGL_PLATFORM"] = "egl"
-
 
 # Render from OSMesa should be deterministic
-def test_render_from_depth_osmesa():
+def test_render_from_depth():
     # tacto.Renderer use np.random.randn to generate noise.
     # Fix the random seed here to make test deterministic
     np.random.seed(2020)
