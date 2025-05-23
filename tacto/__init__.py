@@ -10,7 +10,7 @@ from .sensor import (  # noqa: F401; noqa: F401
     get_digit_config_path,
     get_digit_shadow_config_path,
     get_omnitact_config_path,
-    get_background_image_path
+    get_background_image_path,
 )
 
 __author__ = "Wang, Shaoxiong and Lambeta, Mike and Chou, Po-Wei and Calandra, Roberto"

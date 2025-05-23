@@ -10,6 +10,7 @@ import tacto  # noqa: E402
 
 os.environ["PYOPENGL_PLATFORM"] = "egl"
 
+
 # Render from OSMesa should be deterministic
 def test_render_from_depth_osmesa():
     # tacto.Renderer use np.random.randn to generate noise.
@@ -34,7 +35,7 @@ def test_render_from_depth_osmesa():
     # np.save(os.path.join(cur_path, "color-ground-truth.npy"), color)
 
     diff = color - color_gt
-    rms = (diff ** 2).mean() ** 0.5
+    rms = (diff**2).mean() ** 0.5
 
     atol = 0.5
     assert rms <= atol, f"Expect RMS < {atol} but got {rms}"

@@ -51,18 +51,14 @@ def matrix2euler(pose, xyz="xyz", degrees=False):
 class Renderer:
     def __init__(self, width, height, background, config_path, headless=False):
         """
+        Initialize the renderer.
 
         :param width: scalar
         :param height: scalar
         :param background: image
         :param config_path:
+        :param headless: bool, if you are using a headless server, set to True. And set the environment variable properly before running.
         """
-
-        if headless:
-            import os
-
-            os.environ["PYOPENGL_PLATFORM"] = "egl"
-
         self._width = width
         self._height = height
 
@@ -450,7 +446,6 @@ class Renderer:
         self.object_nodes[obj_name] = obj_node
         self.current_object_nodes[obj_name] = obj_node
 
-
     def update_camera_pose_from_matrix(self, pose):
         """
         Update sensor pose (including camera, lighting, and gel surface)
@@ -470,7 +465,6 @@ class Renderer:
             light_pose = pose.dot(self.light_poses0[i])
             light_node = self.light_nodes[i]
             light_node.matrix = light_pose
-
 
     def update_camera_pose(self, position, orientation):
         """

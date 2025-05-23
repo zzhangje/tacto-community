@@ -29,7 +29,8 @@ def test_rendering_fps(benchmark):
     px.init_pybullet(mode=p.DIRECT)
 
     digit = px.Body(
-        "../meshes/digit.urdf", base_orientation=[0.0, -0.707106, 0.0, 0.707106],
+        "../meshes/digit.urdf",
+        base_orientation=[0.0, -0.707106, 0.0, 0.707106],
     )
 
     obj = px.Body(

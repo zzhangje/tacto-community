@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from . import config_digit as config_digit
+
 __author__ = "Wang, Shaoxiong and Lambeta, Mike and Chou, Po-Wei and Calandra, Roberto"
 __contact__ = "sxwang@fb.com, lambetam@fb.com, poweic@fb.com, rcalandra@fb.com"
 __version__ = "0.0.3"  # Source of truth for tacto's version
