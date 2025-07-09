@@ -1,4 +1,4 @@
-# TACTO Patch
+# TACTO Community
 
 ![Package Version](https://img.shields.io/badge/version-0.0.4-orange)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/zhangzrjerry/tactopatch/python-package.yml)
