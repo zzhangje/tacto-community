@@ -20,13 +20,13 @@ For more information refer to the corresponding paper [TACTO: A Fast, Flexible, 
 Please manually clone the repository and install the package using:
 
 ```bash
-pip install tacto@git+https://github.com/zhangzrjerry/TactoPatch.git
+pip install tacto@git+https://github.com/zzhangje/tacto-community.git
 ```
 
 Alternatively, you can manually clone the repository and install the package using:
 
 ```bash
-git clone https://github.com/zhangzrjerry/TactoPatch.git
+git clone https://github.com/zhangzrjerry/tacto-community.git
 cd TactoPatch
 pip install -e .
 ```
